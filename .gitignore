@@ -1,0 +1,40 @@
+# 出力ファイル
+*.html~
+*.csv~
+*.zip
+
+# IDEとエディタ
+.vscode/*
+!.vscode/settings.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node.js（オプション：npm使用時）
+node_modules/
+package-lock.json
+dist/
+build/
+
+# キャッシュ
+.cache
+*.tmp
+
+# ログ
+*.log
+npm-debug.log*
+
+# 環境設定
+.env
+.env.local
+.env.*.local
+
+# テンポラリ
+temp/
+tmp/

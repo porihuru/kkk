@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>入札公告管理</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <p class="eyebrow">公告管理システム</p>
+      <h1>令和8年度 入札公告</h1>
+      <p id="data-status" class="status" aria-live="polite">データ接続を確認しています...</p>
+    </div>
+  </header>
+
+  <main class="page-body">
+    <section class="admin-access" aria-label="管理者画面">
+      <div class="section-heading">
+        <h2>管理者画面</h2>
+      </div>
+      <p>公告の修正・削除・出力などの管理機能を使う場合は、管理者パスワードを入力してください。</p>
+      <input id="admin-password" type="password" autocomplete="off" placeholder="管理者パスワード">
+      <button id="admin-login" type="button" class="button">管理者機能を有効化</button>
+      <button id="admin-logout" type="button" class="button button-secondary hidden">管理者機能を無効化</button>
+      <p id="admin-message" class="form-message" aria-live="polite"></p>
+    </section>
+
+    <section class="importer admin-only hidden" aria-label="既存HTML取り込み">
+      <div class="section-heading"><h2>既存HTML取り込み</h2></div>
+      <div class="import-row">
+        <label for="html-file">HTMLファイル</label>
+        <input id="html-file" type="file" accept=".html,text/html">
+        <button id="import-file" type="button" class="button button-secondary">ファイルを解析</button>
+      </div>
+      <label for="html-source">HTMLソース貼り付け</label>
+      <textarea id="html-source" rows="5" placeholder="既存のR8kokoku.htmlのソースを貼り付け"></textarea>
+      <button id="import-source" type="button" class="button button-secondary">ソースを解析</button>
+      <p id="import-message" class="form-message" aria-live="polite"></p>
+      <div id="import-settings" class="settings-preview"></div>
+      <div class="settings-editor">
+        <h3>表上部設定を編集</h3>
+        <select id="setting-type"><option value="title">タイトル</option><option value="notice">注意事項</option><option value="link">外部リンク</option><option value="date">基準日</option></select>
+        <input id="setting-text" type="text" placeholder="表示文字">
+        <input id="setting-url" type="text" placeholder="URL（外部リンクのみ）">
+        <button id="setting-add" type="button" class="button button-secondary">設定を追加</button>
+      </div>
+    </section>
+
+    <section class="editor" aria-label="公告編集">
+      <div class="section-heading">
+        <h2 id="editor-title">公告を新規登録</h2>
+        <button id="cancel-edit" type="button" class="button button-secondary hidden">入力を取り消す</button>
+      </div>
+      <form id="announcement-form">
+        <input id="announcement-id" type="hidden" value="">
+        <div class="form-row">
+          <label for="category-input">区分</label>
+          <select id="category-input"><option value="NEW">NEW</option><option value="変更">変更</option><option value="削除">削除</option></select>
+          <label for="garrison-input">駐屯地</label>
+          <input id="garrison-input" type="text" required>
+          <label for="date-input">入札日</label>
+          <input id="date-input" type="text" placeholder="R8.9.10" required>
+          <label for="status-input" class="admin-only-control hidden">状態</label>
+          <select id="status-input" class="admin-only-control hidden"><option value="下書き">下書き</option><option value="公開待ち">公開待ち</option><option value="公開済み">公開済み</option><option value="公開停止">公開停止</option></select>
+        </div>
+        <div class="form-row">
+          <label for="remarks-input">備考</label>
+          <input id="remarks-input" class="wide-input" type="text">
+        </div>
+        <div class="form-row">
+          <label for="link-text-input">PDF表示名</label>
+          <input id="link-text-input" type="text" required>
+          <label for="link-url-input">PDFリンク</label>
+          <input id="link-url-input" class="wide-input" type="text" placeholder="R8/be/example.pdf" required>
+          <label for="pdf-file-input">PDFファイル</label>
+          <input id="pdf-file-input" type="file" accept="application/pdf">
+          <button type="submit" class="button">保存</button>
+        </div>
+      </form>
+      <p id="form-message" class="form-message" aria-live="polite"></p>
+    </section>
+
+    <section class="toolbar" aria-label="公告検索">
+      <div class="toolbar-heading">
+        <h2>公告一覧</h2>
+        <span id="record-count" class="record-count">0件</span>
+      </div>
+      <label for="search-input">検索</label>
+      <input id="search-input" type="text" placeholder="品名、駐屯地、区分で検索">
+       <button id="export-kokoku" type="button" class="button export-button admin-only-control hidden">公告CSV出力</button>
+       <button id="export-links" type="button" class="button export-button admin-only-control hidden">リンクCSV出力</button>
+       <button id="export-settings" type="button" class="button export-button admin-only-control hidden">設定CSV出力</button>
+       <button id="export-html" type="button" class="button export-button admin-only-control hidden">HTML出力</button>
+       <button id="export-update-zip" type="button" class="button export-button admin-only-control hidden">更新分ZIP</button>
+       <button id="export-full-zip" type="button" class="button export-button admin-only-control hidden">全データZIP</button>
+       <button id="preview-page" type="button" class="button export-button admin-only-control hidden">公開ページプレビュー</button>
+    </section>
+
+    <section class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">区分</th>
+            <th scope="col">駐屯地</th>
+            <th scope="col">品名・PDF</th>
+            <th scope="col" class="date-column"><button id="sort-date" type="button" class="sort-button">入札日 ▲▼</button></th>
+            <th scope="col">備考</th>
+            <th scope="col" class="action-column">操作</th>
+          </tr>
+        </thead>
+        <tbody id="announcement-list">
+          <tr><td colspan="6" class="empty-row">読み込み中...</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <script type="text/javascript" src="js/csv-data.js"></script>
+  <script type="text/javascript" src="js/sp.js"></script>
+  <script type="text/javascript" src="js/data-service.js"></script>
+  <script type="text/javascript" src="js/html-export.js"></script>
+  <script type="text/javascript" src="js/html-import.js"></script>
+  <script type="text/javascript" src="js/zip-export.js"></script>
+  <script type="text/javascript" src="js/app.js"></script>
+</body>
+</html>

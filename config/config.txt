@@ -1,0 +1,10 @@
+# 入札公告管理アプリ設定
+DATA_MODE=CSV
+WEB_ROOT=AUTO
+SETTINGS_LIST=kokoku_settings
+ANNOUNCEMENT_LIST=kokoku
+LINK_LIST=kokoku_links
+HTML_FILE=R8kokoku.html
+PUBLIC_ROOT=nafin
+PDF_ROOT=nafin/R8/be
+PDF_LIBRARY=nafin/R8/be
