@@ -596,18 +596,16 @@
   function start() {
     setAdminVisibility(false);
     byId("data-status").innerHTML = "テンプレート / SharePoint / CSV確認中...";
-    HtmlExport.loadTemplate(function () {
-      DataService.load(function (data) {
-        allAnnouncements = data.announcements;
-        allLinks = data.links;
-        allSettings = data.settings || [];
-        byId("data-status").innerHTML = data.mode === "SHAREPOINT" ? "接続完了" : "CSVモード / 読み込み完了";
-        render(allAnnouncements);
-        renderSettings();
-      }, showError);
-    }, function () {
-      byId("data-status").innerHTML = "koukoku.htmlを読み込めません。";
-      byId("announcement-list").innerHTML = '<tr><td colspan="6" class="empty-row">テンプレートを表示できません。</td></tr>';
+    DataService.load(function (data) {
+      allAnnouncements = data.announcements;
+      allLinks = data.links;
+      allSettings = data.settings || [];
+      byId("data-status").innerHTML = data.mode === "SHAREPOINT" ? "接続完了" : "CSVモード / 読み込み完了";
+      render(allAnnouncements);
+      renderSettings();
+    }, showError);
+    HtmlExport.loadTemplate(function () {}, function () {
+      byId("form-message").innerHTML = "テンプレートを読み込めないため、HTML出力とプレビューは利用できません。";
     });
     byId("search-input").onkeyup = filterAnnouncements;
     byId("announcement-form").onsubmit = saveAnnouncement;
