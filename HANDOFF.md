@@ -178,7 +178,7 @@ CsvData.fromCsv(csvText, columns) // CSV文字列 → 配列
 |---------|------|-----|
 | kokoku.csv | 公告マスタ | ID, Category, Garrison, BidDate, Remarks, Sort, Status |
 | links.csv | PDFリンク | ID, KokokuID, Text, FileName, URL, Type, Sort |
-| settings.csv | 設定 | ID, Type, Text, URL, Sort |
+| settings.csv | 基準日 | ID, Type, Text, URL, Sort（date 1行のみ） |
 
 ### 2.5 zip-export.js（100行）- ZIP生成
 

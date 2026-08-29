@@ -418,7 +418,7 @@
   function replaceImportedData(data) {
     allAnnouncements = data.announcements;
     allLinks = data.links;
-    allSettings = data.settings || [];
+    allSettings = dateOnlySettings(data.settings || []);
     byId("data-status").innerHTML = "CSVモード / HTML取り込みデータ";
     clearForm();
     render(allAnnouncements);
@@ -426,133 +426,59 @@
     renderSettings();
   }
 
+  function dateOnlySettings(settings) {
+    var result = [];
+    var i;
+    for (i = 0; i < settings.length; i += 1) {
+      if (settings[i].Type === "date") {
+        result.push(settings[i]);
+        break;
+      }
+    }
+    if (result.length) {
+      result[0].Sort = "1";
+    }
+    return result;
+  }
+
   function renderSettings() {
     var html = [];
-    var i;
     if (!allSettings.length) {
-      byId("import-settings").innerHTML = "";
+      byId("import-settings").innerHTML = "<strong>基準日</strong> 未設定";
+      byId("setting-date").value = "";
       return;
     }
-    html.push("<strong>表上部の設定</strong><ul>");
-    for (i = 0; i < allSettings.length; i += 1) {
-      html.push("<li><span>" + escapeHtml(allSettings[i].Type) + "</span> " + escapeHtml(allSettings[i].Text));
-      if (allSettings[i].URL) {
-        html.push(" <a href=\"" + escapeHtml(allSettings[i].URL) + "\">" + escapeHtml(allSettings[i].URL) + "</a>");
-      }
-      html.push(" <button type=\"button\" class=\"button button-small setting-edit\" data-index=\"" + i + "\">修正</button>");
-      html.push(" <button type=\"button\" class=\"button button-small setting-up\" data-index=\"" + i + "\">▲</button>");
-      html.push(" <button type=\"button\" class=\"button button-small setting-down\" data-index=\"" + i + "\">▼</button>");
-      html.push(" <button type=\"button\" class=\"button button-small button-danger setting-delete\" data-index=\"" + i + "\">削除</button>");
-      html.push("</li>");
-    }
-    html.push("</ul>");
+    html.push("<strong>基準日</strong> " + escapeHtml(allSettings[0].Text));
     byId("import-settings").innerHTML = html.join("");
-    bindSettingActions();
-  }
-
-  function bindSettingActions() {
-    var buttons = document.getElementsByClassName("setting-delete");
-    var editButtons = document.getElementsByClassName("setting-edit");
-    var upButtons = document.getElementsByClassName("setting-up");
-    var downButtons = document.getElementsByClassName("setting-down");
-    var i;
-    for (i = 0; i < buttons.length; i += 1) {
-      buttons[i].onclick = deleteSetting;
-    }
-    for (i = 0; i < editButtons.length; i += 1) {
-      editButtons[i].onclick = editSetting;
-    }
-    for (i = 0; i < upButtons.length; i += 1) {
-      upButtons[i].onclick = moveSettingUp;
-    }
-    for (i = 0; i < downButtons.length; i += 1) {
-      downButtons[i].onclick = moveSettingDown;
-    }
-  }
-
-  function renumberSettings() {
-    var i;
-    for (i = 0; i < allSettings.length; i += 1) {
-      allSettings[i].Sort = String(i + 1);
-    }
-  }
-
-  function editSetting() {
-    var setting = allSettings[parseInt(this.getAttribute("data-index"), 10)];
-    if (!setting) {
-      return;
-    }
-    byId("setting-type").value = setting.Type;
-    byId("setting-text").value = setting.Text;
-    byId("setting-url").value = setting.URL || "";
-    byId("setting-add").innerHTML = "設定を保存";
-    byId("setting-add").setAttribute("data-edit-index", this.getAttribute("data-index"));
-    byId("import-message").innerHTML = "設定を修正して保存してください。";
-  }
-
-  function moveSetting(index, direction) {
-    var target = index + direction;
-    var current;
-    if (target < 0 || target >= allSettings.length) {
-      return;
-    }
-    current = allSettings[index];
-    allSettings[index] = allSettings[target];
-    allSettings[target] = current;
-    renumberSettings();
-    renderSettings();
-  }
-
-  function moveSettingUp() {
-    moveSetting(parseInt(this.getAttribute("data-index"), 10), -1);
-  }
-
-  function moveSettingDown() {
-    moveSetting(parseInt(this.getAttribute("data-index"), 10), 1);
+    byId("setting-date").value = allSettings[0].Text;
   }
 
   function addSetting() {
-    var text = byId("setting-text").value;
-    var editIndex = byId("setting-add").getAttribute("data-edit-index");
+    var text = byId("setting-date").value;
+    var editIndex = allSettings.length ? 0 : -1;
+    var setting;
     if (!text) {
-      byId("import-message").innerHTML = "設定の表示文字を入力してください。";
+      byId("import-message").innerHTML = "基準日を入力してください。";
       return;
     }
-    if (editIndex !== null) {
-      allSettings[parseInt(editIndex, 10)].Type = byId("setting-type").value;
-      allSettings[parseInt(editIndex, 10)].Text = text;
-      allSettings[parseInt(editIndex, 10)].URL = byId("setting-url").value;
+    if (editIndex >= 0) {
+      allSettings[editIndex].Text = text;
+      allSettings[editIndex].Type = "date";
+      allSettings[editIndex].Sort = "1";
+      setting = allSettings[editIndex];
     } else {
-      allSettings.push({ ID: String(allSettings.length + 1), Type: byId("setting-type").value, Text: text, URL: byId("setting-url").value, Sort: String(allSettings.length + 1) });
+      setting = { ID: "1", Type: "date", Text: text, URL: "", Sort: "1" };
+      allSettings.push(setting);
     }
-    renumberSettings();
-    byId("setting-text").value = "";
-    byId("setting-url").value = "";
-    byId("setting-add").innerHTML = "設定を追加";
-    byId("setting-add").removeAttribute("data-edit-index");
     renderSettings();
-    byId("import-message").innerHTML = "表上部設定を追加しました。";
-    if (DataService.isSharePoint() && editIndex === null) {
-      DataService.add("settings", { Type: allSettings[allSettings.length - 1].Type, Text: allSettings[allSettings.length - 1].Text, URL: allSettings[allSettings.length - 1].URL, Sort: allSettings[allSettings.length - 1].Sort }, function () {}, function () {
+    byId("import-message").innerHTML = "基準日を保存しました。";
+    if (DataService.isSharePoint() && editIndex < 0) {
+      DataService.add("settings", { Type: setting.Type, Text: setting.Text, URL: setting.URL, Sort: setting.Sort }, function () {}, function () {
         byId("import-message").innerHTML = "画面には追加しましたが、SharePointへの設定保存に失敗しました。";
       });
-    } else if (DataService.isSharePoint() && editIndex !== null) {
-      DataService.update("settings", allSettings[parseInt(editIndex, 10)].Id || allSettings[parseInt(editIndex, 10)].ID, { Type: allSettings[parseInt(editIndex, 10)].Type, Text: allSettings[parseInt(editIndex, 10)].Text, URL: allSettings[parseInt(editIndex, 10)].URL, Sort: allSettings[parseInt(editIndex, 10)].Sort }, function () {}, function () {
+    } else if (DataService.isSharePoint() && editIndex >= 0) {
+      DataService.update("settings", setting.Id || setting.ID, { Type: setting.Type, Text: setting.Text, URL: setting.URL, Sort: setting.Sort }, function () {}, function () {
         byId("import-message").innerHTML = "画面には反映しましたが、SharePointの設定更新に失敗しました。";
-      });
-    }
-  }
-
-  function deleteSetting() {
-    var index = parseInt(this.getAttribute("data-index"), 10);
-    var setting = allSettings[index];
-    allSettings.splice(index, 1);
-    renumberSettings();
-    renderSettings();
-    byId("import-message").innerHTML = "表上部設定を削除しました。";
-    if (DataService.isSharePoint() && setting) {
-      DataService.remove("settings", setting.Id || setting.ID, function () {}, function () {
-        byId("import-message").innerHTML = "画面から削除しましたが、SharePointの設定削除に失敗しました。";
       });
     }
   }
@@ -599,7 +525,7 @@
     DataService.load(function (data) {
       allAnnouncements = data.announcements;
       allLinks = data.links;
-      allSettings = data.settings || [];
+      allSettings = dateOnlySettings(data.settings || []);
       byId("data-status").innerHTML = data.mode === "SHAREPOINT" ? "接続完了" : "CSVモード / 読み込み完了";
       render(allAnnouncements);
       renderSettings();
@@ -623,6 +549,16 @@
     byId("sort-date").onclick = toggleDateSort;
     byId("admin-login").onclick = activateAdmin;
     byId("admin-logout").onclick = deactivateAdmin;
+    byId("admin-password").onkeydown = function (event) {
+      event = event || window.event;
+      if (event.keyCode === 13) {
+        if (event.preventDefault) {
+          event.preventDefault();
+        }
+        activateAdmin();
+        return false;
+      }
+    };
   }
 
   global.onload = start;

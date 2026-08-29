@@ -220,9 +220,9 @@ UI更新
   settings: [
     {
       ID: "1",
-      Type: "title",            // "title" | "notice" | "link" | "date"
-      Text: "令和8年度入札公告一覧",
-      URL: "",                  // "link" type のときのみ URL を含む
+      Type: "date",             // date 固定
+      Text: "令和８年８月２７日現在",
+      URL: "",                  // 未使用
       Sort: "1"
     },
     ...
@@ -231,11 +231,9 @@ UI更新
 ```
 
 **解析ルール詳細**
-1. **注意事項抽出**
-   - 第1テーブル (`tables[0]`) の右側セル (`th[1]`) を対象
-   - `<br>` で分割された各行を個別の notice として処理
-   - `<a>` タグは外部リンク (link type) として別途処理
-   - "令和" で始まる行は date として分類
+1. **基準日抽出**
+   - 「令和○年○月○日現在」の文字列だけを date として処理
+   - タイトル、注意事項、外部リンクは原本テンプレートから変更しない
 
 2. **リンク抽出**
    - 相対URL変換: `/nafin/R8/` 以降を抽出 → `R8/be/xxx.pdf`
@@ -443,7 +441,7 @@ CsvData.fromCsv("ID,Name\n1,A\n2,B", ["ID", "Name"])
 |-------|------|-----|
 |kokoku.csv|公告マスタ|ID, Category, Garrison, BidDate, Remarks, Sort, Status|
 |links.csv|PDFリンク|ID, KokokuID, Text, FileName, URL, Type, Sort|
-|settings.csv|表上部設定|ID, Type, Text, URL, Sort|
+|settings.csv|基準日|ID, Type, Text, URL, Sort（date 1行のみ）|
 
 #### **js/zip-export.js** - ZIP生成
 

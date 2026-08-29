@@ -78,7 +78,12 @@
         }
       }
     }
-    return settings;
+    for (i = 0; i < settings.length; i += 1) {
+      if (settings[i].Type === "date") {
+        return [settings[i]];
+      }
+    }
+    return [];
   }
 
   HtmlImport.parse = function (source) {
