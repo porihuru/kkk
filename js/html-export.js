@@ -48,6 +48,9 @@
     cells.push("<td align=\"center\">" + escapeHtml(announcement.Garrison) + "</td>");
     cells.push("<td>");
     for (i = 0; i < links.length; i += 1) {
+      if (i > 0) {
+        cells.push("<br>");
+      }
       cells.push("<a href=\"" + escapeHtml(links[i].URL) + "\" target=\"_blank\">" + escapeHtml(links[i].Text) + "</a>");
       anchorCount += 1;
     }

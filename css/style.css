@@ -256,6 +256,51 @@ h1 {
   width: 280px;
 }
 
+.pdf-links-editor {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #e1e7e7;
+}
+
+.pdf-links-heading {
+  margin-bottom: 9px;
+  color: #315e67;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.pdf-link-row {
+  display: grid;
+  grid-template-columns: 28px 34px minmax(150px, 1fr) 70px minmax(190px, 1fr) 25px 220px;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 7px;
+}
+
+.pdf-row-number {
+  color: #52636a;
+  font-size: 13px;
+  text-align: center;
+}
+
+.pdf-link-row label {
+  color: #52636a;
+  font-size: 13px;
+}
+
+.pdf-link-row input {
+  width: 100%;
+  min-width: 0;
+  padding: 7px;
+  border: 1px solid #b8c5c5;
+  border-radius: 2px;
+  font: inherit;
+}
+
+.pdf-links-editor > .button {
+  margin-top: 5px;
+}
+
 .date-input-group {
   display: inline-flex;
   align-items: center;
@@ -552,6 +597,23 @@ a {
     width: 100%;
     margin-right: 0;
     margin-bottom: 6px;
+  }
+
+  .pdf-link-row {
+    grid-template-columns: 28px 1fr;
+    gap: 4px 7px;
+    align-items: center;
+  }
+
+  .pdf-row-number {
+    grid-row: span 6;
+    align-self: start;
+    padding-top: 7px;
+  }
+
+  .pdf-link-row label,
+  .pdf-link-row input {
+    grid-column: 2;
   }
 }
 

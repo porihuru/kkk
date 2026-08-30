@@ -5,7 +5,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>入札公告管理</title>
-  <link rel="stylesheet" href="css/style.css?v=20260830-13">
+  <link rel="stylesheet" href="css/style.css?v=20260830-14">
 </head>
 <body>
   <header class="site-header">
@@ -97,13 +97,53 @@
           <label for="remarks-input">備考</label>
           <input id="remarks-input" class="wide-input" type="text">
         </div>
-        <div class="form-row">
-          <label for="link-text-input">PDF表示名</label>
-          <input id="link-text-input" type="text" required>
-          <label for="link-url-input">PDFリンク</label>
-          <input id="link-url-input" class="wide-input" type="text" placeholder="R8/be/example.pdf" readonly required>
-          <label for="pdf-file-input">PDFファイル</label>
-          <input id="pdf-file-input" type="file" accept="application/pdf">
+        <div class="pdf-links-editor">
+          <div class="pdf-links-heading">品目・PDFリンク（最大5行）</div>
+          <div class="pdf-link-row">
+            <span class="pdf-row-number">1</span>
+            <label for="link-text-input-1">品目</label>
+            <input id="link-text-input-1" class="pdf-text-input" type="text">
+            <label for="link-url-input-1">PDFリンク</label>
+            <input id="link-url-input-1" class="pdf-url-input" type="text" placeholder="R8/be/example.pdf" readonly>
+            <label for="pdf-file-input-1">PDF</label>
+            <input id="pdf-file-input-1" class="pdf-file-input" type="file" accept="application/pdf">
+          </div>
+          <div class="pdf-link-row">
+            <span class="pdf-row-number">2</span>
+            <label for="link-text-input-2">品目</label>
+            <input id="link-text-input-2" class="pdf-text-input" type="text">
+            <label for="link-url-input-2">PDFリンク</label>
+            <input id="link-url-input-2" class="pdf-url-input" type="text" placeholder="R8/be/example.pdf" readonly>
+            <label for="pdf-file-input-2">PDF</label>
+            <input id="pdf-file-input-2" class="pdf-file-input" type="file" accept="application/pdf">
+          </div>
+          <div class="pdf-link-row">
+            <span class="pdf-row-number">3</span>
+            <label for="link-text-input-3">品目</label>
+            <input id="link-text-input-3" class="pdf-text-input" type="text">
+            <label for="link-url-input-3">PDFリンク</label>
+            <input id="link-url-input-3" class="pdf-url-input" type="text" placeholder="R8/be/example.pdf" readonly>
+            <label for="pdf-file-input-3">PDF</label>
+            <input id="pdf-file-input-3" class="pdf-file-input" type="file" accept="application/pdf">
+          </div>
+          <div class="pdf-link-row">
+            <span class="pdf-row-number">4</span>
+            <label for="link-text-input-4">品目</label>
+            <input id="link-text-input-4" class="pdf-text-input" type="text">
+            <label for="link-url-input-4">PDFリンク</label>
+            <input id="link-url-input-4" class="pdf-url-input" type="text" placeholder="R8/be/example.pdf" readonly>
+            <label for="pdf-file-input-4">PDF</label>
+            <input id="pdf-file-input-4" class="pdf-file-input" type="file" accept="application/pdf">
+          </div>
+          <div class="pdf-link-row">
+            <span class="pdf-row-number">5</span>
+            <label for="link-text-input-5">品目</label>
+            <input id="link-text-input-5" class="pdf-text-input" type="text">
+            <label for="link-url-input-5">PDFリンク</label>
+            <input id="link-url-input-5" class="pdf-url-input" type="text" placeholder="R8/be/example.pdf" readonly>
+            <label for="pdf-file-input-5">PDF</label>
+            <input id="pdf-file-input-5" class="pdf-file-input" type="file" accept="application/pdf">
+          </div>
           <button type="submit" class="button">保存</button>
         </div>
       </form>
@@ -197,11 +237,11 @@
   <script type="text/javascript" src="js/csv-data.js?v=20260830-1"></script>
   <script type="text/javascript" src="js/sp.js?v=20260829-2"></script>
   <script type="text/javascript" src="js/data-service.js?v=20260830-1"></script>
-  <script type="text/javascript" src="js/html-export.js?v=20260830-1"></script>
+  <script type="text/javascript" src="js/html-export.js?v=20260830-2"></script>
   <script type="text/javascript" src="js/html-import.js?v=20260829-2"></script>
   <script type="text/javascript" src="js/zip-export.js?v=20260829-2"></script>
   <script type="text/javascript" src="jisyo/kuromoji.js"></script>
   <script type="text/javascript" src="js/filename-generator.js?v=20260830-2"></script>
-  <script type="text/javascript" src="js/app.js?v=20260830-13"></script>
+  <script type="text/javascript" src="js/app.js?v=20260830-15"></script>
 </body>
 </html>

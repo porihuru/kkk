@@ -12,7 +12,8 @@
   var preservePlannedOrder = false;
   var editingList = "planned";
   var selectedPdfFiles = {};
-  var filenameGenerationSequence = 0;
+  var filenameGenerationSequences = [];
+  var PDF_ROW_COUNT = 5;
   var adminActive = false;
   var ADMIN_PASSWORD = "snk";
   var ALLOWED_CATEGORIES = ["NEW", "", "結果"];
@@ -70,7 +71,7 @@
     var picker = byId("date-picker-input");
     byId("date-input").onchange = function () {
       syncDatePicker();
-      updatePdfLink();
+      updatePdfLinks();
     };
     byId("date-picker-button").onclick = function () {
       if (picker.showPicker) {
@@ -87,7 +88,7 @@
       }
       parts = picker.value.split("-");
       byId("date-input").value = toReiwaDate(new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
-      updatePdfLink();
+      updatePdfLinks();
     };
   }
 
@@ -96,12 +97,21 @@
     return parts[parts.length - 1] || "";
   }
 
-  function updatePdfLink() {
-    var title = byId("link-text-input").value.trim();
+  function pdfInput(field, rowIndex) {
+    return byId(field + "-" + (rowIndex + 1));
+  }
+
+  function updatePdfLink(rowIndex) {
+    var title = pdfInput("link-text-input", rowIndex).value.trim();
     var garrison = byId("garrison-input").value;
-    var sequence = ++filenameGenerationSequence;
+    var sequence = (filenameGenerationSequences[rowIndex] || 0) + 1;
+    filenameGenerationSequences[rowIndex] = sequence;
+    if (rowIndex > 0 && !title) {
+      pdfInput("link-url-input", rowIndex).value = "";
+      return;
+    }
     if (!global.FilenameGenerator) {
-      byId("link-url-input").value = "";
+      pdfInput("link-url-input", rowIndex).value = "";
       return;
     }
     global.FilenameGenerator.generate({
@@ -110,23 +120,35 @@
       category: byId("category-input").value,
       date: bidDateAsDate() || new Date()
     }, function (result) {
-      if (sequence !== filenameGenerationSequence) {
+      if (sequence !== filenameGenerationSequences[rowIndex]) {
         return;
       }
-      byId("link-url-input").value = result.url;
+      pdfInput("link-url-input", rowIndex).value = result.url;
     }, function () {
-      if (sequence !== filenameGenerationSequence) {
+      if (sequence !== filenameGenerationSequences[rowIndex]) {
         return;
       }
-      byId("link-url-input").value = "";
+      pdfInput("link-url-input", rowIndex).value = "";
       byId("form-message").innerHTML = "PDF表示名からPDFリンクを作成できません。読みやすい日本語で入力してください。";
     });
   }
 
+  function updatePdfLinks() {
+    var i;
+    for (i = 0; i < PDF_ROW_COUNT; i += 1) {
+      updatePdfLink(i);
+    }
+  }
+
   function setupPdfFilename() {
-    byId("category-input").onchange = updatePdfLink;
-    byId("garrison-input").onchange = updatePdfLink;
-    byId("link-text-input").oninput = updatePdfLink;
+    byId("category-input").onchange = updatePdfLinks;
+    byId("garrison-input").onchange = updatePdfLinks;
+    var i;
+    for (i = 0; i < PDF_ROW_COUNT; i += 1) {
+      (function (rowIndex) {
+        pdfInput("link-text-input", rowIndex).oninput = function () { updatePdfLink(rowIndex); };
+      }(i));
+    }
   }
 
   function escapeHtml(value) {
@@ -340,8 +362,11 @@
     syncDatePicker();
     byId("status-input").value = announcement.Status || "公告登録";
     byId("remarks-input").value = announcement.Remarks;
-    byId("link-text-input").value = links.length ? links[0].Text : "";
-    byId("link-url-input").value = links.length ? links[0].URL : "";
+    var rowIndex;
+    for (rowIndex = 0; rowIndex < PDF_ROW_COUNT; rowIndex += 1) {
+      pdfInput("link-text-input", rowIndex).value = links.length > rowIndex ? links[rowIndex].Text : "";
+      pdfInput("link-url-input", rowIndex).value = links.length > rowIndex ? links[rowIndex].URL : "";
+    }
     byId("editor-title").innerHTML = "公告を修正";
     byId("cancel-edit").className = "button button-secondary";
     byId("form-message").innerHTML = "修正内容を入力して保存してください。";
@@ -354,6 +379,7 @@
     byId("announcement-form").reset();
     setDefaultBidDate();
     byId("announcement-id").value = "";
+    updatePdfLinks();
     byId("editor-title").innerHTML = "公告を新規登録";
     byId("cancel-edit").className = "button button-secondary hidden";
     byId("form-message").innerHTML = "";
@@ -380,32 +406,45 @@
     return String(max + 1);
   }
 
-  function persistAnnouncement(announcement, link, isNew, selectedFile) {
+  function persistAnnouncement(kind, announcement, links, isNew, selectedFiles) {
     var payload = { Category: announcement.Category, Garrison: announcement.Garrison, BidDate: announcement.BidDate, Remarks: announcement.Remarks, Sort: announcement.Sort, Status: announcement.Status, OperationDate: announcement.OperationDate };
     var itemId = announcement.Id || announcement.ID;
+    var i;
     if (!DataService.isSharePoint()) {
       return;
     }
-    function saveLink(savedAnnouncement) {
+    function saveLinks(savedAnnouncement) {
       var savedId = savedAnnouncement && (savedAnnouncement.Id || savedAnnouncement.ID);
-      var linkPayload = { KokokuID: savedId || announcement.ID, Text: link.Text, FileName: link.FileName, URL: link.URL, Type: link.Type, Sort: link.Sort };
-      DataService.add("links", linkPayload, function () {
-        byId("form-message").innerHTML = "SharePointへ公告とリンクを保存しました。";
-      }, function () {
-        byId("form-message").innerHTML = "公告は保存しましたが、リンクの保存に失敗しました。";
-      });
-    }
-    if (selectedFile) {
-      DataService.uploadPdf(selectedFile, link.FileName || fileNameFromUrl(link.URL) || selectedFile.name, function () {}, function () {
-        byId("form-message").innerHTML = "公告は保存しましたが、PDFのアップロードに失敗しました。";
-      });
+      var link;
+      var linkPayload;
+      var selectedFile;
+      for (i = 0; i < links.length; i += 1) {
+        link = links[i];
+        linkPayload = { KokokuID: savedId || announcement.ID, Text: link.Text, FileName: link.FileName, URL: link.URL, Type: link.Type, Sort: link.Sort };
+        selectedFile = selectedFiles[pdfKey(kind, link.ID)];
+        if (link.Id) {
+          DataService.update("links", link.Id, linkPayload, function () {}, function () {
+            byId("form-message").innerHTML = "公告は保存しましたが、リンクの更新に失敗しました。";
+          });
+        } else {
+          DataService.add("links", linkPayload, function () {}, function () {
+            byId("form-message").innerHTML = "公告は保存しましたが、リンクの保存に失敗しました。";
+          });
+        }
+        if (selectedFile) {
+          DataService.uploadPdf(selectedFile, link.FileName || fileNameFromUrl(link.URL) || selectedFile.name, function () {}, function () {
+            byId("form-message").innerHTML = "公告は保存しましたが、PDFのアップロードに失敗しました。";
+          });
+        }
+      }
+      byId("form-message").innerHTML = "SharePointへ公告とリンクを保存しました。";
     }
     if (isNew) {
-      DataService.add("announcements", payload, saveLink, function () {
+      DataService.add("announcements", payload, saveLinks, function () {
         byId("form-message").innerHTML = "SharePointへの公告保存に失敗しました。";
       });
     } else {
-      DataService.update("announcements", itemId, payload, function () { saveLink(announcement); }, function () {
+      DataService.update("announcements", itemId, payload, function () { saveLinks(announcement); }, function () {
         byId("form-message").innerHTML = "SharePointへの公告更新に失敗しました。";
       });
     }
@@ -417,7 +456,15 @@
     var state = listState(targetKind);
     var announcement = announcementById(id, state.announcements);
     var links;
-    var selectedFile;
+    var linkRecords = [];
+    var removedLinks = [];
+    var selectedFiles = {};
+    var text;
+    var url;
+    var fileInput;
+    var file;
+    var link;
+    var i;
     var isNew = !announcement;
     if (event) {
       event.preventDefault();
@@ -434,13 +481,20 @@
       byId("form-message").innerHTML = adminActive ? "状態は一覧から選択してください。" : "登録者は公告登録、内容修正、入札終了登録、結果登録から選択してください。";
       return false;
     }
-    if (!byId("link-url-input").value) {
-      updatePdfLink();
-      byId("form-message").innerHTML = "PDFリンクを作成中です。少し待ってから保存してください。";
-      return false;
+    for (i = 0; i < PDF_ROW_COUNT; i += 1) {
+      text = pdfInput("link-text-input", i).value.trim();
+      url = pdfInput("link-url-input", i).value.trim();
+      if (text && !url) {
+        updatePdfLinks();
+        byId("form-message").innerHTML = "PDFリンクを作成中です。少し待ってから保存してください。";
+        return false;
+      }
+      if (text) {
+        linkRecords.push({ rowIndex: i, text: text, url: url });
+      }
     }
-    if (!byId("date-input").value || !byId("link-text-input").value || !byId("link-url-input").value) {
-      byId("form-message").innerHTML = "駐屯地、入札日、PDF表示名、PDFリンクを入力してください。";
+    if (!byId("date-input").value || !linkRecords.length) {
+      byId("form-message").innerHTML = "駐屯地、入札日、PDF表示名を1件以上入力してください。";
       return false;
     }
     if (!/^R[1-9][0-9]*\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12][0-9]|3[01])$/.test(byId("date-input").value)) {
@@ -450,7 +504,7 @@
     if (!announcement) {
       id = nextId(state.announcements);
       announcement = { ID: id, Sort: String(state.announcements.length + 1), Status: "公告登録", OperationDate: "" };
-      state.announcements.push(announcement);
+      state.announcements.unshift(announcement);
     }
     announcement.Category = byId("category-input").value;
     announcement.Garrison = byId("garrison-input").value;
@@ -458,25 +512,48 @@
     announcement.Status = byId("status-input").value;
     announcement.Remarks = byId("remarks-input").value;
     announcement.OperationDate = operationDateText();
-    selectedFile = byId("pdf-file-input").files.length ? byId("pdf-file-input").files[0] : null;
     links = linksFor(id, state.links);
-    if (links.length) {
-      links[0].Text = byId("link-text-input").value;
-      links[0].URL = byId("link-url-input").value;
-      links[0].FileName = fileNameFromUrl(links[0].URL);
-      if (byId("pdf-file-input").files.length) {
-        selectedPdfFiles[pdfKey(targetKind, links[0].ID)] = byId("pdf-file-input").files[0];
+    for (i = 0; i < linkRecords.length; i += 1) {
+      linkRecords[i].link = links[i] || { ID: nextLinkId(state.links), KokokuID: id, Type: "公告" };
+      link = linkRecords[i].link;
+      link.Text = linkRecords[i].text;
+      link.URL = linkRecords[i].url;
+      link.FileName = fileNameFromUrl(link.URL);
+      link.Sort = String(i + 1);
+      if (!links[i]) {
+        state.links.push(link);
       }
-    } else {
-      state.links.push({ ID: nextLinkId(state.links), KokokuID: id, Text: byId("link-text-input").value, FileName: fileNameFromUrl(byId("link-url-input").value), URL: byId("link-url-input").value, Type: "公告", Sort: "1" });
-      if (byId("pdf-file-input").files.length) {
-        selectedPdfFiles[pdfKey(targetKind, state.links[state.links.length - 1].ID)] = byId("pdf-file-input").files[0];
+      fileInput = pdfInput("pdf-file-input", linkRecords[i].rowIndex);
+      file = fileInput.files && fileInput.files.length ? fileInput.files[0] : null;
+      if (file) {
+        selectedFiles[pdfKey(targetKind, link.ID)] = file;
+        selectedPdfFiles[pdfKey(targetKind, link.ID)] = file;
       }
+    }
+    for (i = links.length - 1; i >= linkRecords.length; i -= 1) {
+      removedLinks.push(links[i]);
+      delete selectedPdfFiles[pdfKey(targetKind, links[i].ID)];
+      state.links.splice(state.links.indexOf(links[i]), 1);
+      if (DataService.isSharePoint()) {
+        DataService.remove("links", links[i].Id || links[i].ID, function () {}, function () {});
+      }
+    }
+    links = [];
+    for (i = 0; i < linkRecords.length; i += 1) {
+      links.push(linkRecords[i].link);
+    }
+    if (targetKind === "planned") {
+      i = state.announcements.indexOf(announcement);
+      if (i > 0) {
+        state.announcements.splice(i, 1);
+        state.announcements.unshift(announcement);
+      }
+      preservePlannedOrder = true;
     }
     clearForm();
     filterAnnouncements();
     byId("form-message").innerHTML = DataService.isSharePoint() ? "SharePointへ保存しています..." : "公告を保存しました（CSVモードのメモリ上）。";
-    persistAnnouncement(announcement, linksFor(id, state.links)[0], isNew, selectedFile);
+    persistAnnouncement(targetKind, announcement, links, isNew, selectedFiles);
     return false;
   }
 
@@ -840,7 +917,7 @@
   }
 
   function toggleDateSort() {
-    if (preserveAnnouncementOrder) {
+    if ((this && this.id === "sort-date" && preserveAnnouncementOrder) || (this && this.id === "sort-planned-date" && preservePlannedOrder)) {
       return;
     }
     dateSortDescending = !dateSortDescending;
@@ -959,10 +1036,11 @@
     setupDateInput();
     setupPdfFilename();
     setDefaultBidDate();
-    updatePdfLink();
+    updatePdfLinks();
     byId("data-status").innerHTML = "テンプレート / SharePoint / CSV確認中...";
     DataService.load(function (data) {
       preserveAnnouncementOrder = false;
+      preservePlannedOrder = true;
       plannedAnnouncements = normalizeAnnouncements(data.announcements);
       plannedLinks = data.links;
       allAnnouncements = normalizeAnnouncements(data.publishedAnnouncements || []);
