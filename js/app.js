@@ -9,6 +9,7 @@
   var deletedAnnouncements = [];
   var dateSortDescending = false;
   var preserveAnnouncementOrder = false;
+  var preservePlannedOrder = false;
   var editingList = "planned";
   var selectedPdfFiles = {};
   var filenameGenerationSequence = 0;
@@ -229,11 +230,11 @@
     var links;
     var j;
     var categoryClass;
+    var upDisabled;
+    var downDisabled;
 
-    if (!(kind === "published" && preserveAnnouncementOrder)) {
-      if (kind === "published") {
-        state.announcements.sort(compareAnnouncements);
-      }
+    if (!((kind === "published" && preserveAnnouncementOrder) || (kind === "planned" && preservePlannedOrder))) {
+      state.announcements.sort(compareAnnouncements);
       announcements.sort(compareAnnouncements);
     }
     countElement.innerHTML = announcements.length + "件";
@@ -245,8 +246,14 @@
     for (i = 0; i < announcements.length; i += 1) {
       links = linksFor(announcements[i].ID, state.links);
       categoryClass = announcements[i].Category === "NEW" ? "category" : "category category-change";
+      upDisabled = i === 0 ? " disabled" : "";
+      downDisabled = i === announcements.length - 1 ? " disabled" : "";
       html.push("<tr>");
-      html.push("<td class=\"id-cell\">" + escapeHtml(announcements[i].ID) + "</td>");
+      html.push("<td class=\"id-cell\">");
+      if (adminActive) {
+        html.push("<span class=\"order-controls\"><button type=\"button\" class=\"button order-button order-up-button\" data-list=\"" + kind + "\" data-id=\"" + escapeHtml(announcements[i].ID) + "\" aria-label=\"上へ移動\"" + upDisabled + ">↑</button><button type=\"button\" class=\"button order-button order-down-button\" data-list=\"" + kind + "\" data-id=\"" + escapeHtml(announcements[i].ID) + "\" aria-label=\"下へ移動\"" + downDisabled + ">↓</button></span>");
+      }
+      html.push(escapeHtml(announcements[i].ID) + "</td>");
       html.push("<td class=\"actions\">");
       if (canOperate) {
         html.push("<button type=\"button\" class=\"button button-small edit-button\" data-list=\"" + kind + "\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">修正</button> <button type=\"button\" class=\"button button-small button-danger delete-button\" data-list=\"" + kind + "\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">削除</button>");
@@ -290,6 +297,8 @@
     var deleteButtons = document.getElementsByClassName("delete-button");
     var publishButtons = document.getElementsByClassName("publish-button");
     var returnButtons = document.getElementsByClassName("return-button");
+    var orderUpButtons = document.getElementsByClassName("order-up-button");
+    var orderDownButtons = document.getElementsByClassName("order-down-button");
     var i;
     for (i = 0; i < editButtons.length; i += 1) {
       editButtons[i].onclick = beginEdit;
@@ -302,6 +311,12 @@
     }
     for (i = 0; i < returnButtons.length; i += 1) {
       returnButtons[i].onclick = moveAnnouncement;
+    }
+    for (i = 0; i < orderUpButtons.length; i += 1) {
+      orderUpButtons[i].onclick = moveAnnouncementOrder;
+    }
+    for (i = 0; i < orderDownButtons.length; i += 1) {
+      orderDownButtons[i].onclick = moveAnnouncementOrder;
     }
   }
 
@@ -596,6 +611,42 @@
     }
     filterAnnouncements();
     byId("form-message").innerHTML = toKind === "published" ? "公告リストへ移動しました。" : "公告予定リストへ差し戻しました。";
+  }
+
+  function moveAnnouncementOrder() {
+    var kind = this.getAttribute("data-list") || "planned";
+    var state = listState(kind);
+    var id = this.getAttribute("data-id");
+    var index = -1;
+    var nextIndex;
+    var i;
+    var temporary;
+    if (!adminActive) {
+      return;
+    }
+    for (i = 0; i < state.announcements.length; i += 1) {
+      if (String(state.announcements[i].ID) === String(id)) {
+        index = i;
+        break;
+      }
+    }
+    if (index < 0) {
+      return;
+    }
+    nextIndex = this.className.indexOf("order-up-button") >= 0 ? index - 1 : index + 1;
+    if (nextIndex < 0 || nextIndex >= state.announcements.length) {
+      return;
+    }
+    temporary = state.announcements[index];
+    state.announcements[index] = state.announcements[nextIndex];
+    state.announcements[nextIndex] = temporary;
+    temporary.OperationDate = operationDateText();
+    if (kind === "published") {
+      preserveAnnouncementOrder = true;
+    } else {
+      preservePlannedOrder = true;
+    }
+    filterAnnouncements();
   }
 
   function filterAnnouncements() {

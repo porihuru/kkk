@@ -355,6 +355,26 @@ h1 {
   white-space: nowrap;
 }
 
+.order-controls {
+  display: inline-flex;
+  gap: 2px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.order-button {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.order-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .actions {
   min-width: 230px;
   white-space: normal;
@@ -381,6 +401,13 @@ h2 {
   margin-left: 10px;
   color: #607078;
   font-size: 13px;
+}
+
+.preview-inline-button {
+  margin-left: 14px;
+  padding: 6px 9px;
+  font-size: 12px;
+  vertical-align: middle;
 }
 
 .toolbar label {
