@@ -24,13 +24,25 @@ body {
 }
 
 .header-inner {
-  padding: 28px 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+  padding: 6px 0;
+}
+
+.header-copy {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .eyebrow {
-  margin: 0 0 8px;
+  margin: 0;
   color: #d8a646;
-  font-size: 12px;
+  font-size: 18px;
   font-weight: bold;
   letter-spacing: 2px;
 }
@@ -51,7 +63,8 @@ h1 {
 .status {
   margin-bottom: 0;
   color: #dce9e7;
-  font-size: 13px;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .page-body {
@@ -97,6 +110,46 @@ h1 {
   border: 1px solid #b8c5c5;
   border-radius: 2px;
   font: inherit;
+}
+
+.header-inner .admin-access {
+  flex: 0 1 540px;
+  margin: 0;
+  padding: 4px 8px 0;
+  border-left-color: #d8a646;
+}
+
+.header-inner .admin-access form {
+  white-space: nowrap;
+}
+
+.header-inner .admin-access input {
+  padding: 6px;
+}
+
+.header-inner .admin-access .button {
+  padding: 6px 10px;
+}
+
+.header-inner .admin-access .section-heading {
+  margin-bottom: 9px;
+}
+
+.header-inner .admin-access h2 {
+  color: #315e67;
+  font-size: 20px;
+}
+
+.header-inner .admin-access p {
+  margin-bottom: 10px;
+}
+
+.header-inner .admin-access .form-message {
+  margin-bottom: 0;
+}
+
+.header-inner .admin-access .form-message:empty {
+  display: none;
 }
 
 .import-row {
@@ -405,6 +458,14 @@ a {
   .header-inner,
   .page-body {
     width: 91%;
+  }
+
+  .header-inner {
+    display: block;
+  }
+
+  .header-inner .admin-access {
+    margin-top: 20px;
   }
 
   h1 {

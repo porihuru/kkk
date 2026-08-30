@@ -5,31 +5,27 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>入札公告管理</title>
-  <link rel="stylesheet" href="css/style.css?v=20260830-2">
+  <link rel="stylesheet" href="css/style.css?v=20260830-7">
 </head>
 <body>
   <header class="site-header">
     <div class="header-inner">
-      <p class="eyebrow">公告管理システム</p>
-      <h1>令和8年度 入札公告</h1>
-      <p id="data-status" class="status" aria-live="polite">データ接続を確認しています...</p>
+      <div class="header-copy">
+        <p class="eyebrow">公告管理システム</p>
+        <p id="data-status" class="status" aria-live="polite">データ接続を確認しています...</p>
+      </div>
+      <section class="admin-access" aria-label="管理者画面">
+        <form id="admin-access-form">
+          <input id="admin-password" type="password" autocomplete="off" placeholder="管理者パスワード">
+          <button id="admin-login" type="submit" class="button">管理者機能を有効化</button>
+        </form>
+        <button id="admin-logout" type="button" class="button button-secondary hidden">管理者機能を無効化</button>
+        <p id="admin-message" class="form-message" aria-live="polite"></p>
+      </section>
     </div>
   </header>
 
   <main class="page-body">
-    <section class="admin-access" aria-label="管理者画面">
-      <div class="section-heading">
-        <h2>管理者画面</h2>
-      </div>
-      <p>出力・取込などの管理機能を使う場合は、管理者パスワードを入力してください。公告の修正・削除は登録者も利用できます。</p>
-      <form id="admin-access-form">
-        <input id="admin-password" type="password" autocomplete="off" placeholder="管理者パスワード">
-        <button id="admin-login" type="submit" class="button">管理者機能を有効化</button>
-      </form>
-      <button id="admin-logout" type="button" class="button button-secondary hidden">管理者機能を無効化</button>
-      <p id="admin-message" class="form-message" aria-live="polite"></p>
-    </section>
-
     <section class="importer admin-only hidden" aria-label="既存HTML取り込み">
       <div class="section-heading"><h2>既存HTML取り込み</h2></div>
       <div class="import-row">
@@ -95,7 +91,7 @@
             <input id="date-picker-input" class="date-picker-input" type="date" tabindex="-1" aria-hidden="true">
           </span>
           <label for="status-input">状態</label>
-          <select id="status-input"><option value="公告登録">公告登録</option><option value="内容修正">内容修正</option><option value="入札終了登録">入札終了登録</option><option value="公告反映済">公告反映済</option><option value="結果反映済">結果反映済</option></select>
+          <select id="status-input"><option value="公告登録">公告登録</option><option value="内容修正">内容修正</option><option value="入札終了登録">入札終了登録</option><option value="結果登録">結果登録</option><option value="公告反映済" data-admin-only-status="true">公告反映済</option><option value="結果反映済" data-admin-only-status="true">結果反映済</option></select>
         </div>
         <div class="form-row">
           <label for="remarks-input">備考</label>
@@ -105,7 +101,7 @@
           <label for="link-text-input">PDF表示名</label>
           <input id="link-text-input" type="text" required>
           <label for="link-url-input">PDFリンク</label>
-          <input id="link-url-input" class="wide-input" type="text" placeholder="R8/be/example.pdf" required>
+          <input id="link-url-input" class="wide-input" type="text" placeholder="R8/be/example.pdf" readonly required>
           <label for="pdf-file-input">PDFファイル</label>
           <input id="pdf-file-input" type="file" accept="application/pdf">
           <button type="submit" class="button">保存</button>
@@ -171,6 +167,8 @@
   <script type="text/javascript" src="js/html-export.js?v=20260829-2"></script>
   <script type="text/javascript" src="js/html-import.js?v=20260829-2"></script>
   <script type="text/javascript" src="js/zip-export.js?v=20260829-2"></script>
-  <script type="text/javascript" src="js/app.js?v=20260830-1"></script>
+  <script type="text/javascript" src="jisyo/kuromoji.js"></script>
+  <script type="text/javascript" src="js/filename-generator.js?v=20260830-1"></script>
+  <script type="text/javascript" src="js/app.js?v=20260830-3"></script>
 </body>
 </html>
