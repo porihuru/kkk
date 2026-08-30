@@ -2,11 +2,15 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Edgeで公告アプリを開く",
+      "name": "Launch Edge",
       "type": "msedge",
       "request": "launch",
       "url": "http://localhost:8000/",
-      "webRoot": "${workspaceFolder}"
+      "webRoot": "${workspaceFolder}",
+      "runtimeExecutable": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+      "runtimeArgs": [
+        "--user-data-dir=${workspaceFolder}\\.vscode\\edge-debug-profile"
+      ]
     }
   ]
 }

@@ -107,7 +107,7 @@
     settings = settings || [];
     currentDate = dateSetting(settings);
     for (i = 0; i < announcements.length; i += 1) {
-      if (announcements[i].Status && announcements[i].Status !== "公開済み" && announcements[i].Status !== "公開") {
+      if (announcements[i].Status && announcements[i].Status !== "公告反映済" && announcements[i].Status !== "結果反映済" && announcements[i].Status !== "公開済み" && announcements[i].Status !== "公開") {
         continue;
       }
       announcementLinks = linksFor(links, announcements[i].ID);

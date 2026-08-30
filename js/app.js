@@ -4,13 +4,67 @@
   var allAnnouncements = [];
   var allLinks = [];
   var allSettings = [];
+  var deletedAnnouncements = [];
   var dateSortDescending = false;
   var selectedPdfFiles = {};
   var adminActive = false;
   var ADMIN_PASSWORD = "snk";
+  var ALLOWED_CATEGORIES = ["NEW", "", "結果"];
+  var ALLOWED_GARRISONS = ["札幌", "真駒内", "丘珠", "北千歳", "南恵庭", "北恵庭", "東千歳", "静内", "幌別", "函館", "倶知安", "美唄", "岩見沢", "滝川", "上富良野", "留萌", "旭川", "名寄", "稚内", "遠軽", "美幌", "帯広", "鹿追", "釧路", "別海"];
+  var ALLOWED_STATUSES = ["公告登録", "内容修正", "入札終了登録", "公告反映済", "結果反映済"];
 
   function byId(id) {
     return document.getElementById(id);
+  }
+
+  function padDatePart(value) {
+    return String(value).length < 2 ? "0" + value : String(value);
+  }
+
+  function toReiwaDate(date) {
+    return "R" + (date.getFullYear() - 2018) + "." + (date.getMonth() + 1) + "." + date.getDate();
+  }
+
+  function toDatePickerValue(date) {
+    return date.getFullYear() + "-" + padDatePart(date.getMonth() + 1) + "-" + padDatePart(date.getDate());
+  }
+
+  function setDefaultBidDate() {
+    var date = new Date();
+    date.setHours(12, 0, 0, 0);
+    date.setDate(date.getDate() + 14);
+    byId("date-input").value = toReiwaDate(date);
+    byId("date-picker-input").value = toDatePickerValue(date);
+  }
+
+  function syncDatePicker() {
+    var match = /^R(\d+)\.(\d+)\.(\d+)$/.exec(byId("date-input").value);
+    if (!match) {
+      byId("date-picker-input").value = "";
+      return;
+    }
+    byId("date-picker-input").value = (2018 + parseInt(match[1], 10)) + "-" + padDatePart(match[2]) + "-" + padDatePart(match[3]);
+  }
+
+  function setupDateInput() {
+    var picker = byId("date-picker-input");
+    byId("date-input").onchange = syncDatePicker;
+    byId("date-picker-button").onclick = function () {
+      if (picker.showPicker) {
+        picker.showPicker();
+      } else {
+        picker.focus();
+        picker.click();
+      }
+    };
+    picker.onchange = function () {
+      var parts;
+      if (!picker.value) {
+        return;
+      }
+      parts = picker.value.split("-");
+      byId("date-input").value = toReiwaDate(new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
+    };
   }
 
   function escapeHtml(value) {
@@ -22,11 +76,50 @@
       .replace(/'/g, "&#39;");
   }
 
+  function isAllowed(value, allowedValues) {
+    return allowedValues.indexOf(value) >= 0;
+  }
+
+  function normalizeCategory(value) {
+    value = String(value || "");
+    if (value === "") {
+      return "";
+    }
+    if (value === "変更" || value === "削除") {
+      return "";
+    }
+    return value === "結果" ? "結果" : "NEW";
+  }
+
+  function normalizeStatus(value) {
+    value = String(value || "");
+    if (value === "公開" || value === "公開済み") {
+      return "公告反映済";
+    }
+    if (value === "公開待ち" || value === "下書き") {
+      return "公告登録";
+    }
+    return value === "内容修正" || value === "入札終了登録" || value === "公告反映済" || value === "結果反映済" ? value : "公告登録";
+  }
+
+  function normalizeAnnouncements(items) {
+    var result = [];
+    var i;
+    var item;
+    for (i = 0; i < items.length; i += 1) {
+      item = items[i];
+      item.Category = normalizeCategory(item.Category);
+      item.Status = normalizeStatus(item.Status);
+      result.push(item);
+    }
+    return result;
+  }
+
   function linksFor(announcementId) {
     var result = [];
     var i;
     for (i = 0; i < allLinks.length; i += 1) {
-      if (allLinks[i].KokokuID === announcementId) {
+      if (String(allLinks[i].KokokuID) === String(announcementId)) {
         result.push(allLinks[i]);
       }
     }
@@ -39,7 +132,7 @@
   function announcementById(announcementId) {
     var i;
     for (i = 0; i < allAnnouncements.length; i += 1) {
-      if (allAnnouncements[i].ID === announcementId) {
+      if (String(allAnnouncements[i].ID) === String(announcementId)) {
         return allAnnouncements[i];
       }
     }
@@ -71,6 +164,9 @@
       links = linksFor(announcements[i].ID);
       categoryClass = announcements[i].Category === "NEW" ? "category" : "category category-change";
       html.push("<tr>");
+      html.push("<td class=\"actions\">");
+      html.push("<button type=\"button\" class=\"button button-small edit-button\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">修正</button> <button type=\"button\" class=\"button button-small button-danger delete-button\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">削除</button>");
+      html.push("</td>");
       html.push("<td><span class=\"" + categoryClass + "\">" + escapeHtml(announcements[i].Category) + "</span></td>");
       html.push("<td>" + escapeHtml(announcements[i].Garrison) + "</td>");
       html.push("<td><ul class=\"link-list\">");
@@ -83,13 +179,6 @@
       html.push("</ul></td>");
       html.push("<td>" + escapeHtml(announcements[i].BidDate) + "</td>");
       html.push("<td>" + escapeHtml(announcements[i].Remarks) + "</td>");
-      html.push("<td class=\"actions\">");
-      if (adminActive) {
-        html.push("<button type=\"button\" class=\"button button-small edit-button\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">修正</button> <button type=\"button\" class=\"button button-small button-danger delete-button\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">削除</button>");
-      } else {
-        html.push("登録内容を確認中");
-      }
-      html.push("</td>");
       html.push("</tr>");
     }
     byId("announcement-list").innerHTML = html.join("");
@@ -111,9 +200,6 @@
   function beginEdit() {
     var announcement = announcementById(this.getAttribute("data-id"));
     var links;
-    if (!adminActive) {
-      return;
-    }
     if (!announcement) {
       return;
     }
@@ -122,18 +208,22 @@
     byId("category-input").value = announcement.Category;
     byId("garrison-input").value = announcement.Garrison;
     byId("date-input").value = announcement.BidDate;
-    byId("status-input").value = announcement.Status || "下書き";
+    syncDatePicker();
+    byId("status-input").value = announcement.Status || "公告登録";
     byId("remarks-input").value = announcement.Remarks;
     byId("link-text-input").value = links.length ? links[0].Text : "";
     byId("link-url-input").value = links.length ? links[0].URL : "";
     byId("editor-title").innerHTML = "公告を修正";
     byId("cancel-edit").className = "button button-secondary";
     byId("form-message").innerHTML = "修正内容を入力して保存してください。";
-    window.scrollTo(0, 0);
+    if (byId("announcement-form").scrollIntoView) {
+      byId("announcement-form").scrollIntoView();
+    }
   }
 
   function clearForm() {
     byId("announcement-form").reset();
+    setDefaultBidDate();
     byId("announcement-id").value = "";
     byId("editor-title").innerHTML = "公告を新規登録";
     byId("cancel-edit").className = "button button-secondary hidden";
@@ -198,23 +288,35 @@
     if (event) {
       event.preventDefault();
     }
-    if (id && !adminActive) {
-      byId("form-message").innerHTML = "登録者画面では既存公告を修正できません。";
+    if (!isAllowed(byId("category-input").value, ALLOWED_CATEGORIES)) {
+      byId("form-message").innerHTML = "区分はNEW、空白、結果のいずれかを選択してください。";
       return false;
     }
-    if (!byId("garrison-input").value || !byId("date-input").value || !byId("link-text-input").value || !byId("link-url-input").value) {
+    if (!isAllowed(byId("garrison-input").value, ALLOWED_GARRISONS)) {
+      byId("form-message").innerHTML = "駐屯地は一覧から選択してください。";
+      return false;
+    }
+    if (adminActive && !isAllowed(byId("status-input").value, ALLOWED_STATUSES)) {
+      byId("form-message").innerHTML = "状態は一覧から選択してください。";
+      return false;
+    }
+    if (!byId("date-input").value || !byId("link-text-input").value || !byId("link-url-input").value) {
       byId("form-message").innerHTML = "駐屯地、入札日、PDF表示名、PDFリンクを入力してください。";
+      return false;
+    }
+    if (!/^R[1-9][0-9]*\.(?:[1-9]|1[0-2])\.(?:[1-9]|[12][0-9]|3[01])$/.test(byId("date-input").value)) {
+      byId("form-message").innerHTML = "入札日はR8.8.10形式で入力してください。";
       return false;
     }
     if (!announcement) {
       id = nextId();
-      announcement = { ID: id, Sort: String(allAnnouncements.length + 1), Status: "下書き" };
+      announcement = { ID: id, Sort: String(allAnnouncements.length + 1), Status: "公告登録" };
       allAnnouncements.push(announcement);
     }
     announcement.Category = byId("category-input").value;
     announcement.Garrison = byId("garrison-input").value;
     announcement.BidDate = byId("date-input").value;
-    announcement.Status = adminActive ? byId("status-input").value : "公開待ち";
+    announcement.Status = adminActive ? byId("status-input").value : (isNew ? "公告登録" : "内容修正");
     announcement.Remarks = byId("remarks-input").value;
     links = linksFor(id);
     if (links.length) {
@@ -236,23 +338,63 @@
     return false;
   }
 
+  function copyObject(value) {
+    var result = {};
+    var key;
+    for (key in value) {
+      if (value.hasOwnProperty(key)) {
+        result[key] = value[key];
+      }
+    }
+    return result;
+  }
+
+  function renderDeletedAnnouncements() {
+    var html = [];
+    var i;
+    var j;
+    var record;
+    if (!deletedAnnouncements.length) {
+      byId("deleted-list").innerHTML = '<tr><td colspan="6" class="empty-row">削除された公告はありません。</td></tr>';
+      return;
+    }
+    for (i = 0; i < deletedAnnouncements.length; i += 1) {
+      record = deletedAnnouncements[i];
+      html.push("<tr>");
+      html.push("<td>" + escapeHtml(record.deletedAt) + "</td>");
+      html.push("<td>" + escapeHtml(record.announcement.Category) + "</td>");
+      html.push("<td>" + escapeHtml(record.announcement.Garrison) + "</td>");
+      html.push("<td><ul class=\"link-list\">");
+      for (j = 0; j < record.links.length; j += 1) {
+        html.push("<li>" + escapeHtml(record.links[j].Text) + "</li>");
+      }
+      html.push("</ul></td>");
+      html.push("<td>" + escapeHtml(record.announcement.BidDate) + "</td>");
+      html.push("<td>" + escapeHtml(record.announcement.Remarks) + "</td>");
+      html.push("</tr>");
+    }
+    byId("deleted-list").innerHTML = html.join("");
+  }
+
   function deleteAnnouncement() {
     var id = this.getAttribute("data-id");
     var i;
     var announcement = announcementById(id);
-    if (!adminActive) {
-      return;
-    }
+    var deletedLinks;
     if (!window.confirm("この公告を削除しますか？")) {
       return;
     }
+    deletedLinks = linksFor(id).map(copyObject);
+    if (announcement) {
+      deletedAnnouncements.unshift({ deletedAt: new Date().toLocaleString(), announcement: copyObject(announcement), links: deletedLinks });
+    }
     for (i = allAnnouncements.length - 1; i >= 0; i -= 1) {
-      if (allAnnouncements[i].ID === id) {
+      if (String(allAnnouncements[i].ID) === String(id)) {
         allAnnouncements.splice(i, 1);
       }
     }
     for (i = allLinks.length - 1; i >= 0; i -= 1) {
-      if (allLinks[i].KokokuID === id) {
+      if (String(allLinks[i].KokokuID) === String(id)) {
         if (DataService.isSharePoint()) {
           DataService.remove("links", allLinks[i].Id || allLinks[i].ID, function () {}, function () {});
         }
@@ -264,6 +406,7 @@
         byId("form-message").innerHTML = "画面から削除しましたが、SharePointの削除に失敗しました。";
       });
     }
+    renderDeletedAnnouncements();
     filterAnnouncements();
   }
 
@@ -272,8 +415,14 @@
     var filtered = [];
     var i;
     var text;
+    var links;
+    var linkIndex;
     for (i = 0; i < allAnnouncements.length; i += 1) {
       text = [allAnnouncements[i].Category, allAnnouncements[i].Garrison, allAnnouncements[i].BidDate, allAnnouncements[i].Remarks].join(" ").toLowerCase();
+      links = linksFor(allAnnouncements[i].ID);
+      for (linkIndex = 0; linkIndex < links.length; linkIndex += 1) {
+        text += " " + String(links[linkIndex].Text || "").toLowerCase();
+      }
       if (text.indexOf(keyword) >= 0) {
         filtered.push(allAnnouncements[i]);
       }
@@ -306,6 +455,7 @@
     for (i = 0; i < controls.length; i += 1) {
       setHidden(controls[i], !active);
     }
+    byId("status-input").disabled = !active;
   }
 
   function activateAdmin() {
@@ -328,8 +478,22 @@
     byId("admin-message").innerHTML = "管理者機能を無効化しました。";
     byId("admin-login").className = "button";
     byId("admin-logout").className = "button button-secondary hidden";
+    setHidden(byId("deleted-list-panel"), true);
     setAdminVisibility(false);
     filterAnnouncements();
+  }
+
+  function toggleDeletedList() {
+    var panel = byId("deleted-list-panel");
+    var isHidden;
+    if (!adminActive) {
+      return;
+    }
+    isHidden = (" " + panel.className + " ").indexOf(" hidden ") >= 0;
+    setHidden(panel, !isHidden);
+    if (isHidden) {
+      renderDeletedAnnouncements();
+    }
   }
 
   function downloadCsv(fileName, content) {
@@ -416,7 +580,7 @@
   }
 
   function replaceImportedData(data) {
-    allAnnouncements = data.announcements;
+    allAnnouncements = normalizeAnnouncements(data.announcements);
     allLinks = data.links;
     allSettings = dateOnlySettings(data.settings || []);
     byId("data-status").innerHTML = "CSVモード / HTML取り込みデータ";
@@ -521,9 +685,11 @@
 
   function start() {
     setAdminVisibility(false);
+    setupDateInput();
+    setDefaultBidDate();
     byId("data-status").innerHTML = "テンプレート / SharePoint / CSV確認中...";
     DataService.load(function (data) {
-      allAnnouncements = data.announcements;
+      allAnnouncements = normalizeAnnouncements(data.announcements);
       allLinks = data.links;
       allSettings = dateOnlySettings(data.settings || []);
       byId("data-status").innerHTML = data.mode === "SHAREPOINT" ? "接続完了" : "CSVモード / 読み込み完了";
@@ -547,17 +713,16 @@
     byId("import-file").onclick = importFile;
     byId("setting-add").onclick = addSetting;
     byId("sort-date").onclick = toggleDateSort;
-    byId("admin-login").onclick = activateAdmin;
     byId("admin-logout").onclick = deactivateAdmin;
-    byId("admin-password").onkeydown = function (event) {
+    byId("show-deleted").onclick = toggleDeletedList;
+    byId("close-deleted").onclick = function () { setHidden(byId("deleted-list-panel"), true); };
+    byId("admin-access-form").onsubmit = function (event) {
       event = event || window.event;
-      if (event.keyCode === 13) {
-        if (event.preventDefault) {
-          event.preventDefault();
-        }
-        activateAdmin();
-        return false;
+      if (event.preventDefault) {
+        event.preventDefault();
       }
+      activateAdmin();
+      return false;
     };
   }
 

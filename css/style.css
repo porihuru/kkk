@@ -150,6 +150,13 @@ h1 {
   font-size: 14px;
 }
 
+.deleted-list {
+  margin-top: 18px;
+  padding: 20px 22px;
+  background: #ffffff;
+  border-left: 4px solid #a84b3d;
+}
+
 .settings-editor input,
 .settings-editor select {
   width: 190px;
@@ -194,6 +201,44 @@ h1 {
 
 .form-row .wide-input {
   width: 280px;
+}
+
+.date-input-group {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 18px;
+  vertical-align: middle;
+}
+
+.form-row .date-input-group #date-input {
+  margin-right: 4px;
+}
+
+.date-picker-button {
+  width: 38px;
+  height: 38px;
+  padding: 4px;
+  border: 1px solid #315e67;
+  border-radius: 2px;
+  color: #ffffff;
+  background: #315e67;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+}
+
+.date-picker-button:hover {
+  background: #244a52;
+}
+
+.date-picker-input {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  opacity: 0;
 }
 
 .button {

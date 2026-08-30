@@ -5,7 +5,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>入札公告管理</title>
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=20260830-2">
 </head>
 <body>
   <header class="site-header">
@@ -21,9 +21,11 @@
       <div class="section-heading">
         <h2>管理者画面</h2>
       </div>
-      <p>公告の修正・削除・出力などの管理機能を使う場合は、管理者パスワードを入力してください。</p>
-      <input id="admin-password" type="password" autocomplete="off" placeholder="管理者パスワード">
-      <button id="admin-login" type="button" class="button">管理者機能を有効化</button>
+      <p>出力・取込などの管理機能を使う場合は、管理者パスワードを入力してください。公告の修正・削除は登録者も利用できます。</p>
+      <form id="admin-access-form">
+        <input id="admin-password" type="password" autocomplete="off" placeholder="管理者パスワード">
+        <button id="admin-login" type="submit" class="button">管理者機能を有効化</button>
+      </form>
       <button id="admin-logout" type="button" class="button button-secondary hidden">管理者機能を無効化</button>
       <p id="admin-message" class="form-message" aria-live="polite"></p>
     </section>
@@ -56,13 +58,44 @@
         <input id="announcement-id" type="hidden" value="">
         <div class="form-row">
           <label for="category-input">区分</label>
-          <select id="category-input"><option value="NEW">NEW</option><option value="変更">変更</option><option value="削除">削除</option></select>
+          <select id="category-input"><option value="NEW">NEW</option><option value=""></option><option value="結果">結果</option></select>
           <label for="garrison-input">駐屯地</label>
-          <input id="garrison-input" type="text" required>
+          <select id="garrison-input" required>
+            <option value="">選択してください</option>
+            <option value="札幌">札幌</option>
+            <option value="真駒内">真駒内</option>
+            <option value="丘珠">丘珠</option>
+            <option value="北千歳">北千歳</option>
+            <option value="南恵庭">南恵庭</option>
+            <option value="北恵庭">北恵庭</option>
+            <option value="東千歳">東千歳</option>
+            <option value="静内">静内</option>
+            <option value="幌別">幌別</option>
+            <option value="函館">函館</option>
+            <option value="倶知安">倶知安</option>
+            <option value="美唄">美唄</option>
+            <option value="岩見沢">岩見沢</option>
+            <option value="滝川">滝川</option>
+            <option value="上富良野">上富良野</option>
+            <option value="留萌">留萌</option>
+            <option value="旭川">旭川</option>
+            <option value="名寄">名寄</option>
+            <option value="稚内">稚内</option>
+            <option value="遠軽">遠軽</option>
+            <option value="美幌">美幌</option>
+            <option value="帯広">帯広</option>
+            <option value="鹿追">鹿追</option>
+            <option value="釧路">釧路</option>
+            <option value="別海">別海</option>
+          </select>
           <label for="date-input">入札日</label>
-          <input id="date-input" type="text" placeholder="R8.9.10" required>
-          <label for="status-input" class="admin-only-control hidden">状態</label>
-          <select id="status-input" class="admin-only-control hidden"><option value="下書き">下書き</option><option value="公開待ち">公開待ち</option><option value="公開済み">公開済み</option><option value="公開停止">公開停止</option></select>
+          <span class="date-input-group">
+            <input id="date-input" type="text" placeholder="R8.8.10" required>
+            <button id="date-picker-button" type="button" class="date-picker-button" aria-label="カレンダーから入札日を選択">📅</button>
+            <input id="date-picker-input" class="date-picker-input" type="date" tabindex="-1" aria-hidden="true">
+          </span>
+          <label for="status-input">状態</label>
+          <select id="status-input"><option value="公告登録">公告登録</option><option value="内容修正">内容修正</option><option value="入札終了登録">入札終了登録</option><option value="公告反映済">公告反映済</option><option value="結果反映済">結果反映済</option></select>
         </div>
         <div class="form-row">
           <label for="remarks-input">備考</label>
@@ -95,18 +128,19 @@
        <button id="export-update-zip" type="button" class="button export-button admin-only-control hidden">更新分ZIP</button>
        <button id="export-full-zip" type="button" class="button export-button admin-only-control hidden">全データZIP</button>
        <button id="preview-page" type="button" class="button export-button admin-only-control hidden">公開ページプレビュー</button>
+       <button id="show-deleted" type="button" class="button export-button admin-only-control hidden">削除一覧</button>
     </section>
 
     <section class="table-wrap">
       <table>
         <thead>
           <tr>
+            <th scope="col" class="action-column">操作</th>
             <th scope="col">区分</th>
             <th scope="col">駐屯地</th>
             <th scope="col">品名・PDF</th>
             <th scope="col" class="date-column"><button id="sort-date" type="button" class="sort-button">入札日 ▲▼</button></th>
             <th scope="col">備考</th>
-            <th scope="col" class="action-column">操作</th>
           </tr>
         </thead>
         <tbody id="announcement-list">
@@ -114,14 +148,29 @@
         </tbody>
       </table>
     </section>
+
+    <section id="deleted-list-panel" class="deleted-list hidden" aria-label="削除一覧">
+      <div class="toolbar-heading">
+        <h2>削除一覧</h2>
+      </div>
+      <button id="close-deleted" type="button" class="button button-secondary">閉じる</button>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>削除日時</th><th>区分</th><th>駐屯地</th><th>品名・PDF</th><th>入札日</th><th>備考</th></tr>
+          </thead>
+          <tbody id="deleted-list"><tr><td colspan="6" class="empty-row">削除された公告はありません。</td></tr></tbody>
+        </table>
+      </div>
+    </section>
   </main>
 
-  <script type="text/javascript" src="js/csv-data.js"></script>
-  <script type="text/javascript" src="js/sp.js"></script>
-  <script type="text/javascript" src="js/data-service.js"></script>
-  <script type="text/javascript" src="js/html-export.js"></script>
-  <script type="text/javascript" src="js/html-import.js"></script>
-  <script type="text/javascript" src="js/zip-export.js"></script>
-  <script type="text/javascript" src="js/app.js"></script>
+  <script type="text/javascript" src="js/csv-data.js?v=20260829-2"></script>
+  <script type="text/javascript" src="js/sp.js?v=20260829-2"></script>
+  <script type="text/javascript" src="js/data-service.js?v=20260829-2"></script>
+  <script type="text/javascript" src="js/html-export.js?v=20260829-2"></script>
+  <script type="text/javascript" src="js/html-import.js?v=20260829-2"></script>
+  <script type="text/javascript" src="js/zip-export.js?v=20260829-2"></script>
+  <script type="text/javascript" src="js/app.js?v=20260830-1"></script>
 </body>
 </html>
