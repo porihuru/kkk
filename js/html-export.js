@@ -77,6 +77,10 @@
     return source.replace(pattern, "$1" + rows + "$2");
   }
 
+  function disableDateSorting(source) {
+    return source.replace(/\s+onclick\s*=\s*["']sortByDate\(\)["']/gi, "");
+  }
+
   HtmlExport.loadTemplate = function (success, error) {
     var request = new XMLHttpRequest();
     request.open("GET", "config/koukoku.html", true);
@@ -113,7 +117,8 @@
       announcementLinks = linksFor(links, announcements[i].ID);
       rows.push(rowHtml(announcements[i], announcementLinks, rows.length));
     }
-    source = replaceDate(templateSource, currentDate);
+    source = disableDateSorting(templateSource);
+    source = replaceDate(source, currentDate);
     return replaceRows(source, rows.join(""));
   };
 

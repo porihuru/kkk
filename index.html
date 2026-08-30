@@ -5,7 +5,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>入札公告管理</title>
-  <link rel="stylesheet" href="css/style.css?v=20260830-7">
+  <link rel="stylesheet" href="css/style.css?v=20260830-11">
 </head>
 <body>
   <header class="site-header">
@@ -110,20 +110,50 @@
       <p id="form-message" class="form-message" aria-live="polite"></p>
     </section>
 
-    <section class="toolbar" aria-label="公告検索">
+    <section class="toolbar" aria-label="公告予定リストの検索">
       <div class="toolbar-heading">
-        <h2>公告一覧</h2>
-        <span id="record-count" class="record-count">0件</span>
+        <h2>公告予定リスト</h2>
+        <span id="planned-record-count" class="record-count">0件</span>
       </div>
       <label for="search-input">検索</label>
       <input id="search-input" type="text" placeholder="品名、駐屯地、区分で検索">
+       <button id="export-planned-kokoku" type="button" class="button export-button admin-only-control hidden">予定CSV出力</button>
+       <button id="export-planned-links" type="button" class="button export-button admin-only-control hidden">予定リンクCSV出力</button>
+    </section>
+
+    <section class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col" class="id-column">ID</th>
+            <th scope="col" class="action-column">操作</th>
+            <th scope="col" class="operation-date-column">操作日時</th>
+            <th scope="col" class="status-column">状態</th>
+            <th scope="col">区分</th>
+            <th scope="col">駐屯地</th>
+            <th scope="col">品名・PDF</th>
+            <th scope="col" class="date-column"><button id="sort-planned-date" type="button" class="sort-button">入札日 ▲▼</button></th>
+            <th scope="col">備考</th>
+          </tr>
+        </thead>
+        <tbody id="planned-announcement-list">
+          <tr><td colspan="9" class="empty-row">読み込み中...</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="toolbar" aria-label="公告リスト">
+      <div class="toolbar-heading">
+        <h2>公告リスト</h2>
+        <span id="record-count" class="record-count">0件</span>
+      </div>
        <button id="export-kokoku" type="button" class="button export-button admin-only-control hidden">公告CSV出力</button>
-       <button id="export-links" type="button" class="button export-button admin-only-control hidden">リンクCSV出力</button>
+       <button id="export-links" type="button" class="button export-button admin-only-control hidden">公告リンクCSV出力</button>
        <button id="export-settings" type="button" class="button export-button admin-only-control hidden">設定CSV出力</button>
        <button id="export-html" type="button" class="button export-button admin-only-control hidden">HTML出力</button>
        <button id="export-update-zip" type="button" class="button export-button admin-only-control hidden">更新分ZIP</button>
        <button id="export-full-zip" type="button" class="button export-button admin-only-control hidden">全データZIP</button>
-       <button id="preview-page" type="button" class="button export-button admin-only-control hidden">公開ページプレビュー</button>
+       <button id="preview-page" type="button" class="button export-button">公開ページプレビュー</button>
        <button id="show-deleted" type="button" class="button export-button admin-only-control hidden">削除一覧</button>
     </section>
 
@@ -131,7 +161,10 @@
       <table>
         <thead>
           <tr>
+            <th scope="col" class="id-column">ID</th>
             <th scope="col" class="action-column">操作</th>
+            <th scope="col" class="operation-date-column">操作日時</th>
+            <th scope="col" class="status-column">状態</th>
             <th scope="col">区分</th>
             <th scope="col">駐屯地</th>
             <th scope="col">品名・PDF</th>
@@ -140,7 +173,7 @@
           </tr>
         </thead>
         <tbody id="announcement-list">
-          <tr><td colspan="6" class="empty-row">読み込み中...</td></tr>
+          <tr><td colspan="9" class="empty-row">読み込み中...</td></tr>
         </tbody>
       </table>
     </section>
@@ -161,14 +194,14 @@
     </section>
   </main>
 
-  <script type="text/javascript" src="js/csv-data.js?v=20260829-2"></script>
+  <script type="text/javascript" src="js/csv-data.js?v=20260830-1"></script>
   <script type="text/javascript" src="js/sp.js?v=20260829-2"></script>
-  <script type="text/javascript" src="js/data-service.js?v=20260829-2"></script>
-  <script type="text/javascript" src="js/html-export.js?v=20260829-2"></script>
+  <script type="text/javascript" src="js/data-service.js?v=20260830-1"></script>
+  <script type="text/javascript" src="js/html-export.js?v=20260830-1"></script>
   <script type="text/javascript" src="js/html-import.js?v=20260829-2"></script>
   <script type="text/javascript" src="js/zip-export.js?v=20260829-2"></script>
   <script type="text/javascript" src="jisyo/kuromoji.js"></script>
-  <script type="text/javascript" src="js/filename-generator.js?v=20260830-1"></script>
-  <script type="text/javascript" src="js/app.js?v=20260830-3"></script>
+  <script type="text/javascript" src="js/filename-generator.js?v=20260830-2"></script>
+  <script type="text/javascript" src="js/app.js?v=20260830-12"></script>
 </body>
 </html>

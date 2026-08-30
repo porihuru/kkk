@@ -48,7 +48,7 @@
     var failed = false;
     var lists = [
       { key: "settings", name: config.SETTINGS_LIST, columns: ["Id", "Type", "Text", "URL", "Sort"] },
-      { key: "announcements", name: config.ANNOUNCEMENT_LIST, columns: ["Id", "Category", "Garrison", "BidDate", "Remarks", "Sort", "Status"] },
+      { key: "announcements", name: config.ANNOUNCEMENT_LIST, columns: ["Id", "Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate"] },
       { key: "links", name: config.LINK_LIST, columns: ["Id", "KokokuID", "Text", "FileName", "URL", "Type", "Sort"] }
     ];
     var i;

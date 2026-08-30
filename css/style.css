@@ -18,8 +18,8 @@ body {
 
 .header-inner,
 .page-body {
-  width: 94%;
-  max-width: 1180px;
+  width: 90%;
+  max-width: none;
   margin: 0 auto;
 }
 
@@ -331,11 +331,37 @@ h1 {
 }
 
 .action-column {
+  width: 250px;
+}
+
+.id-column {
+  width: 50px;
+}
+
+.operation-date-column {
+  width: 135px;
+}
+
+.status-column {
   width: 130px;
 }
 
-.actions {
+.status-cell {
   white-space: nowrap;
+}
+
+.id-cell,
+.operation-date-cell {
+  white-space: nowrap;
+}
+
+.actions {
+  min-width: 230px;
+  white-space: normal;
+}
+
+.move-button {
+  margin-top: 4px;
 }
 
 .toolbar-heading {
@@ -457,7 +483,7 @@ a {
 @media screen and (max-width: 640px) {
   .header-inner,
   .page-body {
-    width: 91%;
+    width: 90%;
   }
 
   .header-inner {

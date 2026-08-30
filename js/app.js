@@ -1,11 +1,15 @@
 (function (global) {
   "use strict";
 
+  var plannedAnnouncements = [];
+  var plannedLinks = [];
   var allAnnouncements = [];
   var allLinks = [];
   var allSettings = [];
   var deletedAnnouncements = [];
   var dateSortDescending = false;
+  var preserveAnnouncementOrder = false;
+  var editingList = "planned";
   var selectedPdfFiles = {};
   var filenameGenerationSequence = 0;
   var adminActive = false;
@@ -31,6 +35,11 @@
     return date.getFullYear() + "-" + padDatePart(date.getMonth() + 1) + "-" + padDatePart(date.getDate());
   }
 
+  function operationDateText() {
+    var date = new Date();
+    return date.getFullYear() + "/" + padDatePart(date.getMonth() + 1) + "/" + padDatePart(date.getDate()) + " " + padDatePart(date.getHours()) + ":" + padDatePart(date.getMinutes());
+  }
+
   function setDefaultBidDate() {
     var date = new Date();
     date.setHours(12, 0, 0, 0);
@@ -48,9 +57,20 @@
     byId("date-picker-input").value = (2018 + parseInt(match[1], 10)) + "-" + padDatePart(match[2]) + "-" + padDatePart(match[3]);
   }
 
+  function bidDateAsDate() {
+    var match = /^R(\d+)\.(\d+)\.(\d+)$/.exec(byId("date-input").value);
+    if (!match) {
+      return null;
+    }
+    return new Date(2018 + parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10));
+  }
+
   function setupDateInput() {
     var picker = byId("date-picker-input");
-    byId("date-input").onchange = syncDatePicker;
+    byId("date-input").onchange = function () {
+      syncDatePicker();
+      updatePdfLink();
+    };
     byId("date-picker-button").onclick = function () {
       if (picker.showPicker) {
         picker.showPicker();
@@ -66,6 +86,7 @@
       }
       parts = picker.value.split("-");
       byId("date-input").value = toReiwaDate(new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
+      updatePdfLink();
     };
   }
 
@@ -78,7 +99,7 @@
     var title = byId("link-text-input").value.trim();
     var garrison = byId("garrison-input").value;
     var sequence = ++filenameGenerationSequence;
-    if (!title || !garrison || !global.FilenameGenerator) {
+    if (!global.FilenameGenerator) {
       byId("link-url-input").value = "";
       return;
     }
@@ -86,7 +107,7 @@
       title: title,
       garrison: garrison,
       category: byId("category-input").value,
-      date: new Date()
+      date: bidDateAsDate() || new Date()
     }, function (result) {
       if (sequence !== filenameGenerationSequence) {
         return;
@@ -155,12 +176,21 @@
     return result;
   }
 
-  function linksFor(announcementId) {
+  function listState(kind) {
+    return kind === "planned" ? { announcements: plannedAnnouncements, links: plannedLinks } : { announcements: allAnnouncements, links: allLinks };
+  }
+
+  function pdfKey(kind, linkId) {
+    return kind + ":" + linkId;
+  }
+
+  function linksFor(announcementId, sourceLinks) {
     var result = [];
     var i;
-    for (i = 0; i < allLinks.length; i += 1) {
-      if (String(allLinks[i].KokokuID) === String(announcementId)) {
-        result.push(allLinks[i]);
+    sourceLinks = sourceLinks || allLinks;
+    for (i = 0; i < sourceLinks.length; i += 1) {
+      if (String(sourceLinks[i].KokokuID) === String(announcementId)) {
+        result.push(sourceLinks[i]);
       }
     }
     result.sort(function (left, right) {
@@ -169,44 +199,70 @@
     return result;
   }
 
-  function announcementById(announcementId) {
+  function announcementById(announcementId, sourceAnnouncements) {
     var i;
-    for (i = 0; i < allAnnouncements.length; i += 1) {
-      if (String(allAnnouncements[i].ID) === String(announcementId)) {
-        return allAnnouncements[i];
+    sourceAnnouncements = sourceAnnouncements || allAnnouncements;
+    for (i = 0; i < sourceAnnouncements.length; i += 1) {
+      if (String(sourceAnnouncements[i].ID) === String(announcementId)) {
+        return sourceAnnouncements[i];
       }
     }
     return null;
   }
 
-  function render(announcements) {
+  function compareAnnouncements(left, right) {
+    var leftDate = String(left.BidDate || "");
+    var rightDate = String(right.BidDate || "");
+    if (leftDate === rightDate) {
+      return (parseInt(left.Sort, 10) || 0) - (parseInt(right.Sort, 10) || 0);
+    }
+    return dateSortDescending ? (leftDate < rightDate ? 1 : -1) : (leftDate > rightDate ? 1 : -1);
+  }
+
+  function renderList(kind, announcements) {
+    var state = listState(kind);
+    var listElement = byId(kind === "planned" ? "planned-announcement-list" : "announcement-list");
+    var countElement = byId(kind === "planned" ? "planned-record-count" : "record-count");
+    var canOperate = kind === "planned" || adminActive;
     var html = [];
     var i;
     var links;
     var j;
     var categoryClass;
 
-    announcements.sort(function (left, right) {
-      var leftDate = String(left.BidDate || "");
-      var rightDate = String(right.BidDate || "");
-      if (leftDate === rightDate) {
-        return (parseInt(left.Sort, 10) || 0) - (parseInt(right.Sort, 10) || 0);
+    if (!(kind === "published" && preserveAnnouncementOrder)) {
+      if (kind === "published") {
+        state.announcements.sort(compareAnnouncements);
       }
-      return dateSortDescending ? (leftDate < rightDate ? 1 : -1) : (leftDate > rightDate ? 1 : -1);
-    });
-    byId("record-count").innerHTML = announcements.length + "件";
+      announcements.sort(compareAnnouncements);
+    }
+    countElement.innerHTML = announcements.length + "件";
     if (!announcements.length) {
-      byId("announcement-list").innerHTML = '<tr><td colspan="6" class="empty-row">該当する公告はありません。</td></tr>';
+      listElement.innerHTML = '<tr><td colspan="9" class="empty-row">該当する公告はありません。</td></tr>';
       return;
     }
 
     for (i = 0; i < announcements.length; i += 1) {
-      links = linksFor(announcements[i].ID);
+      links = linksFor(announcements[i].ID, state.links);
       categoryClass = announcements[i].Category === "NEW" ? "category" : "category category-change";
       html.push("<tr>");
+      html.push("<td class=\"id-cell\">" + escapeHtml(announcements[i].ID) + "</td>");
       html.push("<td class=\"actions\">");
-      html.push("<button type=\"button\" class=\"button button-small edit-button\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">修正</button> <button type=\"button\" class=\"button button-small button-danger delete-button\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">削除</button>");
+      if (canOperate) {
+        html.push("<button type=\"button\" class=\"button button-small edit-button\" data-list=\"" + kind + "\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">修正</button> <button type=\"button\" class=\"button button-small button-danger delete-button\" data-list=\"" + kind + "\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">削除</button>");
+      }
+      if (kind === "planned" && adminActive) {
+        html.push(" <button type=\"button\" class=\"button button-small move-button publish-button\" data-list=\"planned\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">本リストへ登録</button>");
+      }
+      if (kind === "published" && adminActive) {
+        html.push(" <button type=\"button\" class=\"button button-small move-button return-button\" data-list=\"published\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">予定へ差し戻し</button>");
+      }
+      if (!canOperate && !adminActive) {
+        html.push("—");
+      }
       html.push("</td>");
+      html.push("<td class=\"operation-date-cell\">" + escapeHtml(announcements[i].OperationDate || "—") + "</td>");
+      html.push("<td class=\"status-cell\">" + escapeHtml(announcements[i].Status) + "</td>");
       html.push("<td><span class=\"" + categoryClass + "\">" + escapeHtml(announcements[i].Category) + "</span></td>");
       html.push("<td>" + escapeHtml(announcements[i].Garrison) + "</td>");
       html.push("<td><ul class=\"link-list\">");
@@ -221,13 +277,19 @@
       html.push("<td>" + escapeHtml(announcements[i].Remarks) + "</td>");
       html.push("</tr>");
     }
-    byId("announcement-list").innerHTML = html.join("");
+    listElement.innerHTML = html.join("");
     bindRowActions();
+  }
+
+  function render(announcements) {
+    renderList("published", announcements || allAnnouncements);
   }
 
   function bindRowActions() {
     var editButtons = document.getElementsByClassName("edit-button");
     var deleteButtons = document.getElementsByClassName("delete-button");
+    var publishButtons = document.getElementsByClassName("publish-button");
+    var returnButtons = document.getElementsByClassName("return-button");
     var i;
     for (i = 0; i < editButtons.length; i += 1) {
       editButtons[i].onclick = beginEdit;
@@ -235,15 +297,27 @@
     for (i = 0; i < deleteButtons.length; i += 1) {
       deleteButtons[i].onclick = deleteAnnouncement;
     }
+    for (i = 0; i < publishButtons.length; i += 1) {
+      publishButtons[i].onclick = moveAnnouncement;
+    }
+    for (i = 0; i < returnButtons.length; i += 1) {
+      returnButtons[i].onclick = moveAnnouncement;
+    }
   }
 
   function beginEdit() {
-    var announcement = announcementById(this.getAttribute("data-id"));
+    var kind = this.getAttribute("data-list") || "planned";
+    var state = listState(kind);
+    var announcement = announcementById(this.getAttribute("data-id"), state.announcements);
     var links;
+    if (kind === "published" && !adminActive) {
+      return;
+    }
     if (!announcement) {
       return;
     }
-    links = linksFor(announcement.ID);
+    editingList = kind;
+    links = linksFor(announcement.ID, state.links);
     byId("announcement-id").value = announcement.ID;
     byId("category-input").value = announcement.Category;
     byId("garrison-input").value = announcement.Garrison;
@@ -268,28 +342,31 @@
     byId("editor-title").innerHTML = "公告を新規登録";
     byId("cancel-edit").className = "button button-secondary hidden";
     byId("form-message").innerHTML = "";
+    editingList = "planned";
   }
 
-  function nextId() {
+  function nextId(sourceAnnouncements) {
     var max = 0;
     var i;
-    for (i = 0; i < allAnnouncements.length; i += 1) {
-      max = Math.max(max, parseInt(allAnnouncements[i].ID, 10) || 0);
+    sourceAnnouncements = sourceAnnouncements || allAnnouncements;
+    for (i = 0; i < sourceAnnouncements.length; i += 1) {
+      max = Math.max(max, parseInt(sourceAnnouncements[i].ID, 10) || 0);
     }
     return String(max + 1);
   }
 
-  function nextLinkId() {
+  function nextLinkId(sourceLinks) {
     var max = 0;
     var i;
-    for (i = 0; i < allLinks.length; i += 1) {
-      max = Math.max(max, parseInt(allLinks[i].ID, 10) || 0);
+    sourceLinks = sourceLinks || allLinks;
+    for (i = 0; i < sourceLinks.length; i += 1) {
+      max = Math.max(max, parseInt(sourceLinks[i].ID, 10) || 0);
     }
     return String(max + 1);
   }
 
   function persistAnnouncement(announcement, link, isNew, selectedFile) {
-    var payload = { Category: announcement.Category, Garrison: announcement.Garrison, BidDate: announcement.BidDate, Remarks: announcement.Remarks, Sort: announcement.Sort, Status: announcement.Status };
+    var payload = { Category: announcement.Category, Garrison: announcement.Garrison, BidDate: announcement.BidDate, Remarks: announcement.Remarks, Sort: announcement.Sort, Status: announcement.Status, OperationDate: announcement.OperationDate };
     var itemId = announcement.Id || announcement.ID;
     if (!DataService.isSharePoint()) {
       return;
@@ -321,7 +398,9 @@
 
   function saveAnnouncement(event) {
     var id = byId("announcement-id").value;
-    var announcement = announcementById(id);
+    var targetKind = id ? editingList : "planned";
+    var state = listState(targetKind);
+    var announcement = announcementById(id, state.announcements);
     var links;
     var selectedFile;
     var isNew = !announcement;
@@ -354,34 +433,35 @@
       return false;
     }
     if (!announcement) {
-      id = nextId();
-      announcement = { ID: id, Sort: String(allAnnouncements.length + 1), Status: "公告登録" };
-      allAnnouncements.push(announcement);
+      id = nextId(state.announcements);
+      announcement = { ID: id, Sort: String(state.announcements.length + 1), Status: "公告登録", OperationDate: "" };
+      state.announcements.push(announcement);
     }
     announcement.Category = byId("category-input").value;
     announcement.Garrison = byId("garrison-input").value;
     announcement.BidDate = byId("date-input").value;
     announcement.Status = byId("status-input").value;
     announcement.Remarks = byId("remarks-input").value;
+    announcement.OperationDate = operationDateText();
     selectedFile = byId("pdf-file-input").files.length ? byId("pdf-file-input").files[0] : null;
-    links = linksFor(id);
+    links = linksFor(id, state.links);
     if (links.length) {
       links[0].Text = byId("link-text-input").value;
       links[0].URL = byId("link-url-input").value;
       links[0].FileName = fileNameFromUrl(links[0].URL);
       if (byId("pdf-file-input").files.length) {
-        selectedPdfFiles[links[0].ID] = byId("pdf-file-input").files[0];
+        selectedPdfFiles[pdfKey(targetKind, links[0].ID)] = byId("pdf-file-input").files[0];
       }
     } else {
-      allLinks.push({ ID: nextLinkId(), KokokuID: id, Text: byId("link-text-input").value, FileName: fileNameFromUrl(byId("link-url-input").value), URL: byId("link-url-input").value, Type: "公告", Sort: "1" });
+      state.links.push({ ID: nextLinkId(state.links), KokokuID: id, Text: byId("link-text-input").value, FileName: fileNameFromUrl(byId("link-url-input").value), URL: byId("link-url-input").value, Type: "公告", Sort: "1" });
       if (byId("pdf-file-input").files.length) {
-        selectedPdfFiles[allLinks[allLinks.length - 1].ID] = byId("pdf-file-input").files[0];
+        selectedPdfFiles[pdfKey(targetKind, state.links[state.links.length - 1].ID)] = byId("pdf-file-input").files[0];
       }
     }
     clearForm();
     filterAnnouncements();
     byId("form-message").innerHTML = DataService.isSharePoint() ? "SharePointへ保存しています..." : "公告を保存しました（CSVモードのメモリ上）。";
-    persistAnnouncement(announcement, linksFor(id)[0], isNew, selectedFile);
+    persistAnnouncement(announcement, linksFor(id, state.links)[0], isNew, selectedFile);
     return false;
   }
 
@@ -425,27 +505,33 @@
 
   function deleteAnnouncement() {
     var id = this.getAttribute("data-id");
+    var kind = this.getAttribute("data-list") || "planned";
+    var state = listState(kind);
     var i;
-    var announcement = announcementById(id);
+    var announcement = announcementById(id, state.announcements);
     var deletedLinks;
+    if (kind === "published" && !adminActive) {
+      return;
+    }
     if (!window.confirm("この公告を削除しますか？")) {
       return;
     }
-    deletedLinks = linksFor(id).map(copyObject);
+    deletedLinks = linksFor(id, state.links).map(copyObject);
     if (announcement) {
       deletedAnnouncements.unshift({ deletedAt: new Date().toLocaleString(), announcement: copyObject(announcement), links: deletedLinks });
     }
-    for (i = allAnnouncements.length - 1; i >= 0; i -= 1) {
-      if (String(allAnnouncements[i].ID) === String(id)) {
-        allAnnouncements.splice(i, 1);
+    for (i = state.announcements.length - 1; i >= 0; i -= 1) {
+      if (String(state.announcements[i].ID) === String(id)) {
+        state.announcements.splice(i, 1);
       }
     }
-    for (i = allLinks.length - 1; i >= 0; i -= 1) {
-      if (String(allLinks[i].KokokuID) === String(id)) {
+    for (i = state.links.length - 1; i >= 0; i -= 1) {
+      if (String(state.links[i].KokokuID) === String(id)) {
         if (DataService.isSharePoint()) {
-          DataService.remove("links", allLinks[i].Id || allLinks[i].ID, function () {}, function () {});
+          DataService.remove("links", state.links[i].Id || state.links[i].ID, function () {}, function () {});
         }
-        allLinks.splice(i, 1);
+        delete selectedPdfFiles[pdfKey(kind, state.links[i].ID)];
+        state.links.splice(i, 1);
       }
     }
     if (DataService.isSharePoint() && announcement) {
@@ -457,29 +543,90 @@
     filterAnnouncements();
   }
 
-  function filterAnnouncements() {
-    var keyword = byId("search-input").value.toLowerCase();
-    var filtered = [];
-    var i;
-    var text;
+  function moveAnnouncement() {
+    var fromKind = this.getAttribute("data-list") || "planned";
+    var toKind = fromKind === "planned" ? "published" : "planned";
+    var from = listState(fromKind);
+    var to = listState(toKind);
+    var id = this.getAttribute("data-id");
+    var announcement = announcementById(id, from.announcements);
     var links;
-    var linkIndex;
-    for (i = 0; i < allAnnouncements.length; i += 1) {
-      text = [allAnnouncements[i].Category, allAnnouncements[i].Garrison, allAnnouncements[i].BidDate, allAnnouncements[i].Remarks].join(" ").toLowerCase();
-      links = linksFor(allAnnouncements[i].ID);
-      for (linkIndex = 0; linkIndex < links.length; linkIndex += 1) {
-        text += " " + String(links[linkIndex].Text || "").toLowerCase();
+    var i;
+    var announcementIndex;
+    var selectedFile;
+    var movedAnnouncement;
+    var movedLinks = [];
+    var movedLink;
+    if (!adminActive || !announcement) {
+      return;
+    }
+    links = linksFor(id, from.links).map(copyObject);
+    movedAnnouncement = copyObject(announcement);
+    movedAnnouncement.ID = nextId(to.announcements);
+    delete movedAnnouncement.Id;
+    for (i = 0; i < links.length; i += 1) {
+      selectedFile = selectedPdfFiles[pdfKey(fromKind, links[i].ID)];
+      if (selectedFile) {
+        selectedPdfFiles[pdfKey(toKind, nextLinkId(to.links) + i)] = selectedFile;
       }
-      if (text.indexOf(keyword) >= 0) {
-        filtered.push(allAnnouncements[i]);
+      movedLink = links[i];
+      movedLink.ID = nextLinkId(to.links) + i;
+      movedLink.KokokuID = movedAnnouncement.ID;
+      delete movedLink.Id;
+      movedLinks.push(movedLink);
+    }
+    announcementIndex = from.announcements.indexOf(announcement);
+    if (announcementIndex >= 0) {
+      from.announcements.splice(announcementIndex, 1);
+    }
+    for (i = from.links.length - 1; i >= 0; i -= 1) {
+      if (String(from.links[i].KokokuID) === String(id)) {
+        delete selectedPdfFiles[pdfKey(fromKind, from.links[i].ID)];
+        from.links.splice(i, 1);
       }
     }
-    render(filtered);
+    movedAnnouncement.Status = toKind === "published" ? (movedAnnouncement.Category === "結果" ? "結果反映済" : "公告反映済") : (movedAnnouncement.Category === "結果" ? "結果登録" : "内容修正");
+    movedAnnouncement.OperationDate = operationDateText();
+    to.announcements.unshift(movedAnnouncement);
+    for (i = 0; i < movedLinks.length; i += 1) {
+      to.links.push(movedLinks[i]);
+    }
+    if (toKind === "published") {
+      preserveAnnouncementOrder = true;
+    }
+    filterAnnouncements();
+    byId("form-message").innerHTML = toKind === "published" ? "公告リストへ移動しました。" : "公告予定リストへ差し戻しました。";
+  }
+
+  function filterAnnouncements() {
+    var keyword = byId("search-input").value.toLowerCase();
+    function filteredItems(kind) {
+      var state = listState(kind);
+      var filtered = [];
+      var i;
+      var text;
+      var links;
+      var linkIndex;
+      for (i = 0; i < state.announcements.length; i += 1) {
+        text = [state.announcements[i].Category, state.announcements[i].Garrison, state.announcements[i].BidDate, state.announcements[i].Remarks].join(" ").toLowerCase();
+        links = linksFor(state.announcements[i].ID, state.links);
+        for (linkIndex = 0; linkIndex < links.length; linkIndex += 1) {
+          text += " " + String(links[linkIndex].Text || "").toLowerCase();
+        }
+        if (text.indexOf(keyword) >= 0) {
+          filtered.push(state.announcements[i]);
+        }
+      }
+      return filtered;
+    }
+    renderList("planned", filteredItems("planned"));
+    renderList("published", filteredItems("published"));
   }
 
   function showError() {
     byId("data-status").innerHTML = "接続失敗。データを表示できませんが、アプリは継続しています。";
-    byId("announcement-list").innerHTML = '<tr><td colspan="6" class="empty-row">データを表示できません。</td></tr>';
+    byId("planned-announcement-list").innerHTML = '<tr><td colspan="9" class="empty-row">データを表示できません。</td></tr>';
+    byId("announcement-list").innerHTML = '<tr><td colspan="9" class="empty-row">データを表示できません。</td></tr>';
   }
 
   function setHidden(element, hidden) {
@@ -569,13 +716,23 @@
   }
 
   function exportAnnouncements() {
-    downloadCsv("kokoku.csv", CsvData.toCsv(allAnnouncements, ["ID", "Category", "Garrison", "BidDate", "Remarks", "Sort", "Status"]));
+    downloadCsv("kokoku.csv", CsvData.toCsv(allAnnouncements, ["ID", "Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate"]));
     byId("form-message").innerHTML = "公告CSVを出力しました。";
+  }
+
+  function exportPlannedAnnouncements() {
+    downloadCsv("kokoku_planned.csv", CsvData.toCsv(plannedAnnouncements, ["ID", "Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate"]));
+    byId("form-message").innerHTML = "公告予定CSVを出力しました。";
   }
 
   function exportLinks() {
     downloadCsv("links.csv", CsvData.toCsv(allLinks, ["ID", "KokokuID", "Text", "FileName", "URL", "Type", "Sort"]));
     byId("form-message").innerHTML = "リンクCSVを出力しました。";
+  }
+
+  function exportPlannedLinks() {
+    downloadCsv("links_planned.csv", CsvData.toCsv(plannedLinks, ["ID", "KokokuID", "Text", "FileName", "URL", "Type", "Sort"]));
+    byId("form-message").innerHTML = "公告予定リンクCSVを出力しました。";
   }
 
   function exportSettings() {
@@ -614,11 +771,15 @@
     var i;
     var link;
     var file;
+    var fileName;
+    var zipPath;
     for (i = 0; i < allLinks.length; i += 1) {
       link = allLinks[i];
-      file = selectedPdfFiles[link.ID];
+      file = selectedPdfFiles[pdfKey("published", link.ID)];
       if (file) {
-        files.push({ name: link.URL || "nafin/R8/be/" + file.name, file: file });
+        fileName = link.FileName || fileNameFromUrl(link.URL) || file.name;
+        zipPath = link.URL ? (link.URL.indexOf("nafin/") === 0 ? link.URL : "nafin/" + link.URL) : "nafin/R8/be/" + fileName;
+        files.push({ name: zipPath.replace(/\\/g, "/"), file: file });
       }
     }
     ZipExport.create(files, function (blob) {
@@ -628,18 +789,23 @@
   }
 
   function toggleDateSort() {
+    if (preserveAnnouncementOrder) {
+      return;
+    }
     dateSortDescending = !dateSortDescending;
     byId("sort-date").innerHTML = dateSortDescending ? "入札日 ▼" : "入札日 ▲";
+    byId("sort-planned-date").innerHTML = dateSortDescending ? "入札日 ▼" : "入札日 ▲";
     filterAnnouncements();
   }
 
   function replaceImportedData(data) {
+    preserveAnnouncementOrder = true;
     allAnnouncements = normalizeAnnouncements(data.announcements);
     allLinks = data.links;
     allSettings = dateOnlySettings(data.settings || []);
     byId("data-status").innerHTML = "CSVモード / HTML取り込みデータ";
     clearForm();
-    render(allAnnouncements);
+    filterAnnouncements();
     byId("import-message").innerHTML = "公告" + allAnnouncements.length + "件、PDFリンク" + allLinks.length + "件を取り込みました。";
     renderSettings();
   }
@@ -742,13 +908,17 @@
     setupDateInput();
     setupPdfFilename();
     setDefaultBidDate();
+    updatePdfLink();
     byId("data-status").innerHTML = "テンプレート / SharePoint / CSV確認中...";
     DataService.load(function (data) {
-      allAnnouncements = normalizeAnnouncements(data.announcements);
-      allLinks = data.links;
+      preserveAnnouncementOrder = false;
+      plannedAnnouncements = normalizeAnnouncements(data.announcements);
+      plannedLinks = data.links;
+      allAnnouncements = normalizeAnnouncements(data.publishedAnnouncements || []);
+      allLinks = data.publishedLinks || [];
       allSettings = dateOnlySettings(data.settings || []);
       byId("data-status").innerHTML = data.mode === "SHAREPOINT" ? "接続完了" : "CSVモード / 読み込み完了";
-      render(allAnnouncements);
+      filterAnnouncements();
       renderSettings();
     }, showError);
     HtmlExport.loadTemplate(function () {}, function () {
@@ -759,6 +929,8 @@
     byId("cancel-edit").onclick = clearForm;
     byId("export-kokoku").onclick = exportAnnouncements;
     byId("export-links").onclick = exportLinks;
+    byId("export-planned-kokoku").onclick = exportPlannedAnnouncements;
+    byId("export-planned-links").onclick = exportPlannedLinks;
     byId("export-settings").onclick = exportSettings;
     byId("export-html").onclick = exportHtml;
     byId("export-update-zip").onclick = function () { exportZip(false); };
@@ -768,6 +940,7 @@
     byId("import-file").onclick = importFile;
     byId("setting-add").onclick = addSetting;
     byId("sort-date").onclick = toggleDateSort;
+    byId("sort-planned-date").onclick = toggleDateSort;
     byId("admin-logout").onclick = deactivateAdmin;
     byId("show-deleted").onclick = toggleDeletedList;
     byId("close-deleted").onclick = function () { setHidden(byId("deleted-list-panel"), true); };

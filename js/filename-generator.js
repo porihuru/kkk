@@ -161,23 +161,30 @@
     return String(reiwaYear).padStart(2, "0") + String(date.getMonth() + 1).padStart(2, "0") + String(date.getDate()).padStart(2, "0");
   }
 
+  function createResult(options, prefix, done, error) {
+    var stationCode = stationCodes[options.garrison] || (!options.garrison ? "non" : null);
+    var categoryCode = options.category === "結果" ? "kekka" : "n";
+    var date = options.date || new Date();
+    var fileName;
+    if (!stationCode) {
+      error(new Error("駐屯地コードが見つかりません。"));
+      return;
+    }
+    if (!prefix) {
+      error(new Error("PDF表示名からファイル名を作成できません。"));
+      return;
+    }
+    fileName = dateCode(date) + "-" + stationCode + "-" + categoryCode + "-" + prefix + ".pdf";
+    done({ fileName: fileName, url: "R" + (date.getFullYear() - 2018) + "/be/" + fileName, prefix: prefix });
+  }
+
   function generate(options, done, error) {
+    if (!options.title) {
+      createResult(options, "examp", done, error);
+      return;
+    }
     load(function (tokenizerInstance) {
-      var stationCode = stationCodes[options.garrison];
-      var categoryCode = options.category === "結果" ? "kekka" : "n";
-      var prefix = titlePrefix(tokenizerInstance, options.title || "");
-      var date = options.date || new Date();
-      var fileName;
-      if (!stationCode) {
-        error(new Error("駐屯地コードが見つかりません。"));
-        return;
-      }
-      if (!prefix) {
-        error(new Error("PDF表示名からファイル名を作成できません。"));
-        return;
-      }
-      fileName = dateCode(date) + "-" + stationCode + "-" + categoryCode + "-" + prefix + ".pdf";
-      done({ fileName: fileName, url: "R" + (date.getFullYear() - 2018) + "/be/" + fileName, prefix: prefix });
+      createResult(options, titlePrefix(tokenizerInstance, options.title), done, error);
     }, error);
   }
 

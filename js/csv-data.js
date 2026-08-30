@@ -8,10 +8,12 @@
     var requests = {
       announcements: "csv/kokoku.csv",
       links: "csv/links.csv",
+      publishedAnnouncements: "csv/kokoku_public.csv",
+      publishedLinks: "csv/links_public.csv",
       settings: "csv/settings.csv"
     };
     var result = {};
-    var remaining = 3;
+    var remaining = Object.keys(requests).length;
     var failed = false;
     var key;
 
