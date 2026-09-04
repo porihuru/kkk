@@ -75,6 +75,9 @@
   function replaceRows(source, rows) {
     var pattern = /(<table\b[^>]*\bid\s*=\s*["']myTable["'][^>]*>[\s\S]*?<tbody\b[^>]*>)[\s\S]*?(<\/tbody>)/i;
     if (!pattern.test(source)) {
+      if (global.Diagnostics) {
+        global.Diagnostics.error("HTML", "テンプレート内に公告テーブル myTable が見つかりません。", "config/koukoku.html");
+      }
       throw new Error("koukoku.html の公告テーブルを見つけられませんでした。");
     }
     return source.replace(pattern, "$1" + rows + "$2");
@@ -93,9 +96,17 @@
       }
       if (request.status >= 200 && request.status < 300) {
         templateSource = request.responseText;
+        if (global.Diagnostics) {
+          global.Diagnostics.log("HTML", "公開HTMLテンプレートを読み込みました。", "config/koukoku.html");
+        }
         success(templateSource);
-      } else if (error) {
-        error(request);
+      } else {
+        if (global.Diagnostics) {
+          global.Diagnostics.httpError("HTML", "GET", "config/koukoku.html", request);
+        }
+        if (error) {
+          error(request);
+        }
       }
     };
     request.send(null);
@@ -109,6 +120,9 @@
     var source;
 
     if (!templateSource) {
+      if (global.Diagnostics) {
+        global.Diagnostics.error("HTML", "HTML出力を実行できません。テンプレートが未読込です。", "config/koukoku.html");
+      }
       throw new Error("koukoku.html が読み込まれていません。");
     }
     settings = settings || [];
@@ -128,6 +142,9 @@
   HtmlExport.openPreview = function (announcements, links, settings) {
     var preview = window.open("", "kokokuPreview");
     if (!preview) {
+      if (global.Diagnostics) {
+        global.Diagnostics.warn("HTML", "プレビューのポップアップがブロックされました。", "ブラウザのポップアップ許可を確認してください。");
+      }
       window.alert("ポップアップがブロックされています。許可してから再度実行してください。");
       return false;
     }
