@@ -25,6 +25,9 @@
         return;
       }
       if (request.status < 200 || request.status >= 300) {
+        if (global.Diagnostics) {
+          global.Diagnostics.httpError("CONFIG", "GET", "config/config.txt", request);
+        }
         error(request);
         return;
       }
@@ -37,6 +40,9 @@
         }
       }
       currentConfig = config;
+      if (global.Diagnostics) {
+        global.Diagnostics.log("CONFIG", "設定ファイルを読み込みました。", "DATA_MODE=" + String(config.DATA_MODE || "CSV") + " / WEB_ROOT=" + String(config.WEB_ROOT || ""));
+      }
       success(config);
     };
     request.send(null);
@@ -55,6 +61,9 @@
     function fail(request) {
       if (!failed) {
         failed = true;
+        if (global.Diagnostics) {
+          global.Diagnostics.error("SHAREPOINT", "SharePointデータの読み込みに失敗しました。", "設定したリスト名、WEB_ROOT、アクセス権を確認してください。");
+        }
         error(request);
       }
     }
@@ -62,10 +71,16 @@
       result[key] = items;
       remaining -= 1;
       if (remaining === 0 && !failed) {
+        if (global.Diagnostics) {
+          global.Diagnostics.log("SHAREPOINT", "SharePointデータの読み込みが完了しました。", "settings=" + result.settings.length + " / announcements=" + result.announcements.length + " / links=" + result.links.length);
+        }
         success(result);
       }
     }
     SP.init(config.WEB_ROOT);
+    if (global.Diagnostics) {
+      global.Diagnostics.log("SHAREPOINT", "SharePoint接続を開始しました。", "WEB_ROOT=" + String(config.WEB_ROOT || "AUTO"));
+    }
     for (i = 0; i < lists.length; i += 1) {
       SP.load(lists[i].name, lists[i].columns, (function (list) {
         return function (items) { loaded(list.key, items); };
