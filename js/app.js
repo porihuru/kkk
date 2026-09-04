@@ -757,6 +757,51 @@
     byId("announcement-list").innerHTML = '<tr><td colspan="9" class="empty-row">データを表示できません。</td></tr>';
   }
 
+  function applyLoadedData(data) {
+    preserveAnnouncementOrder = false;
+    preservePlannedOrder = true;
+    plannedAnnouncements = normalizeAnnouncements(data.announcements || []);
+    plannedLinks = data.links || [];
+    allAnnouncements = normalizeAnnouncements(data.publishedAnnouncements || []);
+    allLinks = data.publishedLinks || [];
+    allSettings = dateOnlySettings(data.settings || []);
+    byId("database-input").value = data.database || "KOKOKU";
+    byId("data-mode-input").value = data.mode === "SHAREPOINT" ? "SHAREPOINT" : "CSV";
+    byId("database-apply").disabled = false;
+    byId("data-mode-apply").disabled = false;
+    byId("data-status").innerHTML = (data.databaseName || "公告DB") + " / " + (data.mode === "SHAREPOINT" ? "SharePointリスト" : "CSVモード") + " / 読み込み完了";
+    filterAnnouncements();
+    renderSettings();
+  }
+
+  function loadData() {
+    byId("database-apply").disabled = true;
+    byId("data-mode-apply").disabled = true;
+    DataService.load(applyLoadedData, function () {
+      byId("database-apply").disabled = false;
+      byId("data-mode-apply").disabled = false;
+      showError();
+    });
+  }
+
+  function switchDataMode() {
+    var mode = byId("data-mode-input").value;
+    if (!DataService.setMode(mode)) {
+      return;
+    }
+    byId("data-status").innerHTML = mode === "SHAREPOINT" ? "SharePointリストへ切替中..." : "CSVモードへ切替中...";
+    loadData();
+  }
+
+  function switchDatabase() {
+    var database = byId("database-input").value;
+    if (!DataService.setDatabase(database)) {
+      return;
+    }
+    byId("data-status").innerHTML = "DBを切替中...";
+    loadData();
+  }
+
   function setHidden(element, hidden) {
     var classes = String(element.className || "").replace(/^\s+|\s+$/g, "");
     var hasHidden = (" " + classes + " ").indexOf(" hidden ") >= 0;
@@ -1038,18 +1083,7 @@
     setDefaultBidDate();
     updatePdfLinks();
     byId("data-status").innerHTML = "テンプレート / SharePoint / CSV確認中...";
-    DataService.load(function (data) {
-      preserveAnnouncementOrder = false;
-      preservePlannedOrder = true;
-      plannedAnnouncements = normalizeAnnouncements(data.announcements);
-      plannedLinks = data.links;
-      allAnnouncements = normalizeAnnouncements(data.publishedAnnouncements || []);
-      allLinks = data.publishedLinks || [];
-      allSettings = dateOnlySettings(data.settings || []);
-      byId("data-status").innerHTML = data.mode === "SHAREPOINT" ? "接続完了" : "CSVモード / 読み込み完了";
-      filterAnnouncements();
-      renderSettings();
-    }, showError);
+    loadData();
     HtmlExport.loadTemplate(function () {}, function () {
       byId("form-message").innerHTML = "テンプレートを読み込めないため、HTML出力とプレビューは利用できません。";
     });
@@ -1071,6 +1105,8 @@
     byId("sort-date").onclick = toggleDateSort;
     byId("sort-planned-date").onclick = toggleDateSort;
     byId("admin-logout").onclick = deactivateAdmin;
+    byId("database-apply").onclick = switchDatabase;
+    byId("data-mode-apply").onclick = switchDataMode;
     byId("show-deleted").onclick = toggleDeletedList;
     byId("close-deleted").onclick = function () { setHidden(byId("deleted-list-panel"), true); };
     byId("admin-access-form").onsubmit = function (event) {

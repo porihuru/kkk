@@ -5,7 +5,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>入札公告管理</title>
-  <link rel="stylesheet" href="css/style.css?v=20260830-15">
+  <link rel="stylesheet" href="css/style.css?v=20260904-3">
 </head>
 <body>
   <header class="site-header">
@@ -15,6 +15,24 @@
         <p id="data-status" class="status" aria-live="polite">データ接続を確認しています...</p>
       </div>
       <section class="admin-access" aria-label="管理者画面">
+        <div class="data-mode-control">
+          <label for="database-input">対象DB</label>
+          <select id="database-input">
+            <option value="KOKOKU">公告DB</option>
+            <option value="KOUJI">工事公告DB</option>
+            <option value="OP">OPDB</option>
+            <option value="KOBO">公募DB</option>
+          </select>
+          <button id="database-apply" type="button" class="button button-secondary">切替</button>
+        </div>
+        <div class="data-mode-control">
+          <label for="data-mode-input">データモード</label>
+          <select id="data-mode-input">
+            <option value="CSV">CSVモード</option>
+            <option value="SHAREPOINT">SharePointリスト</option>
+          </select>
+          <button id="data-mode-apply" type="button" class="button button-secondary">切替</button>
+        </div>
         <form id="admin-access-form">
           <input id="admin-password" type="password" autocomplete="off" placeholder="管理者パスワード">
           <button id="admin-login" type="submit" class="button">管理者機能を有効化</button>
@@ -236,12 +254,12 @@
 
   <script type="text/javascript" src="js/csv-data.js?v=20260830-1"></script>
   <script type="text/javascript" src="js/sp.js?v=20260829-2"></script>
-  <script type="text/javascript" src="js/data-service.js?v=20260830-1"></script>
+  <script type="text/javascript" src="js/data-service.js?v=20260904-2"></script>
   <script type="text/javascript" src="js/html-export.js?v=20260830-2"></script>
   <script type="text/javascript" src="js/html-import.js?v=20260829-2"></script>
   <script type="text/javascript" src="js/zip-export.js?v=20260829-2"></script>
   <script type="text/javascript" src="jisyo/kuromoji.js"></script>
   <script type="text/javascript" src="js/filename-generator.js?v=20260830-2"></script>
-  <script type="text/javascript" src="js/app.js?v=20260830-15"></script>
+  <script type="text/javascript" src="js/app.js?v=20260904-2"></script>
 </body>
 </html>

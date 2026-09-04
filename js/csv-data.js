@@ -292,13 +292,14 @@
 
   var CsvData = {};
 
-  CsvData.load = function (success, error) {
+  CsvData.load = function (success, error, paths) {
+    paths = paths || {};
     var requests = {
-      announcements: "csv/kokoku.csv",
-      links: "csv/links.csv",
-      publishedAnnouncements: "csv/kokoku_public.csv",
-      publishedLinks: "csv/links_public.csv",
-      settings: "csv/settings.csv"
+      announcements: paths.announcements || "csv/kokoku.csv",
+      links: paths.links || "csv/links.csv",
+      publishedAnnouncements: paths.publishedAnnouncements || "csv/kokoku_public.csv",
+      publishedLinks: paths.publishedLinks || "csv/links_public.csv",
+      settings: paths.settings || "csv/settings.csv"
     };
     var result = {};
     var remaining = Object.keys(requests).length;

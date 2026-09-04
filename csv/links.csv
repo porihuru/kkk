@@ -1,4 +1,6 @@
 ID,KokokuID,Text,FileName,URL,Type,Sort
+4,4,公告サンプル,example-kokoku-004.pdf,R8/be/example-kokoku-004.pdf,公告,1
+5,5,公告サンプル,example-kokoku-005.pdf,R8/be/example-kokoku-005.pdf,公告,1
 1,1,カラーレーザープリンター（借上げ）,080827-324-n-ripatesyon.pdf,R8/be/080827-324-n-ripatesyon.pdf,公告,1
 2,1,仕様書,080827-324-spec.pdf,R8/be/080827-324-spec.pdf,仕様書,2
 3,2,名寄宿舎補修,080827-325-nayoro.pdf,R8/be/080827-325-nayoro.pdf,公告,1

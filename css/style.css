@@ -113,22 +113,63 @@ h1 {
 }
 
 .header-inner .admin-access {
-  flex: 0 1 540px;
+  display: flex;
+  flex: 0 1 790px;
+  align-items: center;
+  flex-wrap: nowrap;
   margin: 0;
   padding: 4px 8px 0;
   border-left-color: #d8a646;
 }
 
 .header-inner .admin-access form {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  margin: 0;
   white-space: nowrap;
 }
 
+.data-mode-control {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  margin: 0 10px 0 0;
+  white-space: nowrap;
+}
+
+.data-mode-control label {
+  margin-right: 6px;
+  color: #315e67;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.data-mode-control select {
+  width: 120px;
+  margin-right: 5px;
+  padding: 5px;
+  border: 1px solid #b8c5c5;
+  border-radius: 2px;
+  font: inherit;
+}
+
+.data-mode-control + .data-mode-control {
+  margin-top: 0;
+}
+
+.data-mode-control .button {
+  padding: 5px 9px;
+}
+
 .header-inner .admin-access input {
+  width: 150px;
   padding: 6px;
 }
 
 .header-inner .admin-access .button {
   padding: 6px 10px;
+  white-space: nowrap;
 }
 
 .header-inner .admin-access .section-heading {
@@ -145,7 +186,7 @@ h1 {
 }
 
 .header-inner .admin-access .form-message {
-  margin-bottom: 0;
+  margin: 0 0 0 8px;
 }
 
 .header-inner .admin-access .form-message:empty {
@@ -564,6 +605,7 @@ a {
   }
 
   .header-inner .admin-access {
+    flex-wrap: wrap;
     margin-top: 20px;
   }
 
