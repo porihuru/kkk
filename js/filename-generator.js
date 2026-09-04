@@ -97,16 +97,25 @@
     loading = true;
     if (!global.kuromoji) {
       loading = false;
+      if (global.Diagnostics) {
+        global.Diagnostics.error("DICTIONARY", "Kuromoji.jsを読み込めませんでした。", "jisyo/kuromoji.js");
+      }
       notifyWaiters(new Error("Kuromoji.jsを読み込めませんでした。"));
       return;
     }
     global.kuromoji.builder({ dicPath: "jisyo/dict/" }).build(function (buildError, builtTokenizer) {
       loading = false;
       if (buildError) {
+        if (global.Diagnostics) {
+          global.Diagnostics.error("DICTIONARY", "日本語辞書の読み込みに失敗しました。", (buildError && buildError.message ? buildError.message : String(buildError)) + "\r\nPath=jisyo/dict/");
+        }
         notifyWaiters(buildError);
         return;
       }
       tokenizer = builtTokenizer;
+      if (global.Diagnostics) {
+        global.Diagnostics.log("DICTIONARY", "日本語辞書を読み込みました。", "jisyo/dict/");
+      }
       notifyWaiters(null);
     });
   }
