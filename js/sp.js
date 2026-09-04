@@ -41,8 +41,13 @@
       }
       if (xhr.status >= 200 && xhr.status < 300) {
         if (success) { success(xhr); }
-      } else if (error) {
-        error(xhr);
+      } else {
+        if (global.Diagnostics) {
+          global.Diagnostics.httpError("SHAREPOINT", method, url, xhr);
+        }
+        if (error) {
+          error(xhr);
+        }
       }
     };
     xhr.send(body || null);
@@ -73,6 +78,9 @@
     SP.digestExpire = 0;
     SP.entityTypes = {};
     SP.fieldSchemas = {};
+    if (global.Diagnostics) {
+      global.Diagnostics.log("SHAREPOINT", "SharePoint APIルートを設定しました。", SP.api);
+    }
     return root;
   };
 
@@ -89,6 +97,9 @@
         SP.digestExpire = new Date().getTime() + ((info.FormDigestTimeoutSeconds - 30) * 1000);
         success(SP.digest);
       } catch (exception) {
+        if (global.Diagnostics) {
+          global.Diagnostics.error("SHAREPOINT", "contextinfo の応答を解析できませんでした。", exception && exception.message ? exception.message : exception);
+        }
         error(xhr);
       }
     }, error);
@@ -113,6 +124,9 @@
         SP.fieldSchemas[listName] = result;
         success(result);
       } catch (exception) {
+        if (global.Diagnostics) {
+          global.Diagnostics.error("SHAREPOINT", "リスト列情報の応答を解析できませんでした。", "List=" + listName + " / " + (exception && exception.message ? exception.message : exception));
+        }
         error(xhr);
       }
     }, error);
@@ -170,7 +184,12 @@
           items = JSON.parse(xhr.responseText).d.results || [];
           for (i = 0; i < items.length; i += 1) { normalize(items[i], currentSchema); }
           success(items);
-        } catch (exception) { error(xhr); }
+        } catch (exception) {
+          if (global.Diagnostics) {
+            global.Diagnostics.error("SHAREPOINT", "リストデータの応答を解析できませんでした。", "List=" + listName + " / " + (exception && exception.message ? exception.message : exception));
+          }
+          error(xhr);
+        }
       }, error);
     }, error);
   };
@@ -182,7 +201,12 @@
       try {
         SP.entityTypes[listName] = JSON.parse(xhr.responseText).d.ListItemEntityTypeFullName;
         success(SP.entityTypes[listName]);
-      } catch (exception) { error(xhr); }
+      } catch (exception) {
+        if (global.Diagnostics) {
+          global.Diagnostics.error("SHAREPOINT", "リスト型情報の応答を解析できませんでした。", "List=" + listName + " / " + (exception && exception.message ? exception.message : exception));
+        }
+        error(xhr);
+      }
     }, error);
   }
 
@@ -201,6 +225,9 @@
               normalize(result, currentSchema);
               success(result);
             } catch (exception) {
+              if (global.Diagnostics) {
+                global.Diagnostics.error("SHAREPOINT", "追加結果の応答を解析できませんでした。", "List=" + listName + " / " + (exception && exception.message ? exception.message : exception));
+              }
               error(xhr);
             }
           }, error);
@@ -238,7 +265,12 @@
       reader.onload = function () {
         request("POST", SP.api + "/web/GetFolderByServerRelativeUrl('" + folder + "')/Files/add(url='" + name + "',overwrite=true)", { "Accept": "application/json;odata=verbose", "X-RequestDigest": digest, "Content-Type": "application/octet-stream" }, reader.result, success, error);
       };
-      reader.onerror = error;
+      reader.onerror = function () {
+        if (global.Diagnostics) {
+          global.Diagnostics.error("PDF", "PDFファイルを読み込めませんでした。", fileName || (file && file.name) || "");
+        }
+        if (error) { error(); }
+      };
       reader.readAsArrayBuffer(file);
     }, error);
   };
