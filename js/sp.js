@@ -5,7 +5,6 @@
     "Id": "Id",
     "ID": "Id",
     "Title": "key",
-    "ID": "Id",
     "Type": "type",
     "Text": "text",
     "URL": "url",
