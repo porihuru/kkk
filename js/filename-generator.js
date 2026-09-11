@@ -165,9 +165,14 @@
     return reading.toLowerCase().replace(/[^a-z]/g, "").slice(0, 5);
   }
 
+  function padTwo(value) {
+    var text = String(value);
+    return text.length < 2 ? "0" + text : text;
+  }
+
   function dateCode(date) {
     var reiwaYear = date.getFullYear() - 2018;
-    return String(reiwaYear).padStart(2, "0") + String(date.getMonth() + 1).padStart(2, "0") + String(date.getDate()).padStart(2, "0");
+    return padTwo(reiwaYear) + padTwo(date.getMonth() + 1) + padTwo(date.getDate());
   }
 
   function createResult(options, prefix, done, error) {
