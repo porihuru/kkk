@@ -5,7 +5,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>入札公告管理</title>
-  <link rel="stylesheet" href="css/style.css?v=20260913-5">
+  <link rel="stylesheet" href="css/style.css?v=20260913-6">
 </head>
 <body>
   <header class="site-header">
@@ -170,6 +170,28 @@
       <p id="form-message" class="form-message" aria-live="polite"></p>
     </section>
 
+    <section id="publication-request-panel" class="editor hidden">
+      <h2>公開公告への更新依頼</h2>
+      <p id="publication-target"></p>
+      <form id="publication-request-form">
+        <input id="publication-target-id" type="hidden">
+        <input id="publication-request-id" type="hidden">
+        <label for="publication-request-type">依頼内容</label>
+        <select id="publication-request-type"><option>掲載終了依頼</option><option>結果登録</option></select>
+        <label for="publication-result-file">結果PDF（結果登録の場合）</label>
+        <input id="publication-result-file" type="file" accept=".pdf,application/pdf">
+        <button type="submit" class="button">依頼を登録</button>
+        <button id="publication-request-cancel" type="button" class="button button-secondary">閉じる</button>
+      </form>
+      <p id="publication-request-message" aria-live="polite"></p>
+    </section>
+    <section class="toolbar admin-only-control hidden">
+      <h2>公開後の反映確認</h2>
+      <p>公開サイトから取得したHTMLファイルを選択してください。公開待ちの内容と公告・並び順・PDFリンクを照合します。PDFの中身は照合しません。</p>
+      <input id="published-check-file" type="file" accept=".html,.htm,text/html" aria-label="公開サイトから取得したHTML">
+      <button id="published-check" type="button" class="button">公開HTMLを照合</button>
+      <p id="published-check-message" aria-live="polite"></p>
+    </section>
     <section class="toolbar" aria-label="公告予定リストの検索">
       <div class="toolbar-heading">
         <h2>公告予定リスト</h2>
@@ -256,14 +278,15 @@
     </section>
   </main>
 
-  <script type="text/javascript" src="js/csv-data.js?v=20260913-4"></script>
-  <script type="text/javascript" src="js/sp.js?v=20260913-4"></script>
-  <script type="text/javascript" src="js/data-service.js?v=20260913-4"></script>
+  <script type="text/javascript" src="js/csv-data.js?v=20260913-6"></script>
+  <script type="text/javascript" src="js/sp.js?v=20260913-6"></script>
+  <script type="text/javascript" src="js/data-service.js?v=20260913-6"></script>
   <script type="text/javascript" src="js/html-export.js?v=20260830-2"></script>
   <script type="text/javascript" src="js/html-import.js?v=20260829-2"></script>
   <script type="text/javascript" src="js/zip-export.js?v=20260829-2"></script>
   <script type="text/javascript" src="jisyo/kuromoji.js"></script>
   <script type="text/javascript" src="js/filename-generator.js?v=20260911-1"></script>
-  <script type="text/javascript" src="js/app.js?v=20260913-5"></script>
+  <script type="text/javascript" src="js/publication-workflow.js?v=20260913-6"></script>
+  <script type="text/javascript" src="js/app.js?v=20260913-6"></script>
 </body>
 </html>

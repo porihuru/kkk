@@ -1,11 +1,9 @@
-ID,Category,Garrison,BidDate,Remarks,Sort,Status,OperationDate
-1,NEW,東千歳,R8.9.11,,1,公告反映済,
-2,NEW,北千歳,R8.9.10,,2,公告反映済,
-3,NEW,名寄,R8.9.7,,3,公告反映済,
-4,NEW,東千歳,R8.9.7,,4,公告反映済,
-5,NEW,旭川,R8.10.6,,5,公告反映済,
-6,NEW,名寄,R8.9.7,,6,公告反映済,
-7,NEW,南恵庭,R8.9.7,,7,公告反映済,
-8,NEW,南恵庭,R8.9.7,,8,公告反映済,
-9,NEW,函館,R8.9.14,,9,公告反映済,
-10,NEW,南恵庭,R8.9.7,,10,公告反映済,
+﻿ID,AuthorId,AuthorName,Created,Category,Garrison,BidDate,Remarks,Sort,Status,OperationDate,ListKind,PublicState,TargetID,RequestType,RequestStatus,ResultURL,ResultName,VerifiedAt
+1,csv-user-1,開発ユーザー1,Tue Sep 01 2026 09:00:00 GMT+0900 (日本標準時),NEW,札幌,R8.10.1,【動作確認用】公告掲載中・入札日前,1,公告反映済,,published,公告掲載中,,,,,,
+2,csv-user-1,開発ユーザー1,Tue Sep 01 2026 09:00:00 GMT+0900 (日本標準時),NEW,札幌,R8.9.10,【動作確認用】入札日到来・掲載終了確認対象,2,公告反映済,,published,公告掲載中,,,,,,
+3,csv-user-1,開発ユーザー1,Tue Sep 01 2026 09:00:00 GMT+0900 (日本標準時),NEW,札幌,R8.9.10,【動作確認用】掲載終了依頼あり・まだ公告掲載中,3,公告反映済,,published,公告掲載中,,,,,,
+4,csv-user-1,開発ユーザー1,Tue Sep 01 2026 09:00:00 GMT+0900 (日本標準時),,札幌,R8.9.10,【動作確認用】掲載終了済み・結果未登録,4,公告反映済,,published,掲載終了,,,,,,Sat Sep 12 2026 09:00:00 GMT+0900 (日本標準時)
+5,csv-user-1,開発ユーザー1,Tue Sep 01 2026 09:00:00 GMT+0900 (日本標準時),,札幌,R8.9.10,【動作確認用】掲載終了後に結果PDFを登録,5,公告反映済,,published,掲載終了,,,,,,Sat Sep 12 2026 09:00:00 GMT+0900 (日本標準時)
+6,csv-user-1,開発ユーザー1,Tue Sep 01 2026 09:00:00 GMT+0900 (日本標準時),NEW,札幌,R8.9.10,【動作確認用】公告から直接結果へ・公開待ち,6,公告反映済,,published,公告掲載中,,,,,,
+7,csv-user-1,開発ユーザー1,Tue Sep 01 2026 09:00:00 GMT+0900 (日本標準時),結果,札幌,R8.9.10,【動作確認用】結果掲載中・反映確認済み,7,結果反映済,,published,結果掲載中,,,,R8/be/demo-result-7.pdf,demo-result-7.pdf,Sat Sep 12 2026 09:00:00 GMT+0900 (日本標準時)
+8,csv-user-2,開発ユーザー2,Tue Sep 01 2026 09:00:00 GMT+0900 (日本標準時),NEW,札幌,R8.9.10,【動作確認用】他の投稿者の案件（修正権限の確認）,8,公告反映済,,published,公告掲載中,,,,,,

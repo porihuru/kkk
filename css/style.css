@@ -650,6 +650,12 @@ a {
   word-break: normal;
 }
 
+.due-notice { color: #9c411b; font-size: 12px; white-space: normal; }
+#publication-request-panel label,
+#publication-request-panel select,
+#publication-request-panel input { margin: 8px 8px 8px 0; }
+.status-cell small { display: inline-block; white-space: normal; max-width: 180px; }
+
 @media screen and (max-width: 640px) {
   .header-inner,
   .page-body {

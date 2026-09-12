@@ -100,7 +100,7 @@
     var failed = false;
     var lists = [
       { key: "settings", name: config.SETTINGS_LIST, columns: ["Id", "Type", "Text", "URL", "Sort"] },
-      { key: "announcements", name: config.ANNOUNCEMENT_LIST, columns: ["Id", "AuthorId", "Author/Title", "Created", "Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate"] },
+      { key: "announcements", name: config.ANNOUNCEMENT_LIST, columns: ["Id", "AuthorId", "Author/Title", "Created", "Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate", "ListKind", "PublicState", "TargetID", "RequestType", "RequestStatus", "ResultURL", "ResultName", "VerifiedAt"] },
       { key: "links", name: config.LINK_LIST, columns: ["Id", "KokokuID", "Text", "FileName", "URL", "Type", "Sort"] }
     ];
     var i;
@@ -146,6 +146,11 @@
       if (String(config.DATA_MODE || "CSV").toUpperCase() === "SHAREPOINT") {
         loadSharePoint(config, function (data) {
           currentUser = data.currentUser;
+          data.publishedAnnouncements = data.announcements.filter(function (item) { return item.ListKind === "published"; });
+          data.announcements = data.announcements.filter(function (item) { return item.ListKind !== "published"; });
+          var publicIds = data.publishedAnnouncements.map(function (item) { return String(item.ID); });
+          data.publishedLinks = data.links.filter(function (link) { return publicIds.indexOf(String(link.KokokuID)) >= 0; });
+          data.links = data.links.filter(function (link) { return publicIds.indexOf(String(link.KokokuID)) < 0; });
           data.mode = "SHAREPOINT";
           data.database = currentDatabase.key;
           data.databaseName = currentDatabase.name;
@@ -188,8 +193,13 @@
 
   DataService.canManageAnnouncement = function (item, kind, adminActive) {
     if (!currentUser || !item) { return false; }
+    if (item.RequestStatus === "公開待ち" || item.RequestStatus === "反映確認済み") { return false; }
     if (adminActive && (!DataService.isSharePoint() || currentUser.isAdmin)) { return true; }
     return kind === "planned" && String(item.AuthorId || "") !== "" && String(item.AuthorId) === currentUser.id;
+  };
+
+  DataService.getPublicationConfig = function () {
+    return { endedUrl: (currentConfig || {}).ENDED_PDF_URL || "R8/4/keisai-syuuryou.pdf", pdfRoot: String((currentDatabase || {}).pdfLibrary || "nafin/R8/be").replace(/^nafin\//, "") };
   };
 
   DataService.setDatabase = function (database) {

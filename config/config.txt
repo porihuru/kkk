@@ -12,6 +12,7 @@ ANNOUNCEMENT_LIST=kokoku
 LINK_LIST=kokoku_links
 HTML_FILE=R8kokoku.html
 PUBLIC_ROOT=nafin
+ENDED_PDF_URL=R8/4/keisai-syuuryou.pdf
 PDF_ROOT=nafin/R8/be
 PDF_LIBRARY=nafin/R8/be
 

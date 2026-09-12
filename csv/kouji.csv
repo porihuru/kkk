@@ -1,6 +1,5 @@
-ID,Category,Garrison,BidDate,Remarks,Sort,Status,OperationDate
-1,NEW,東千歳,R8.10.15,庁舎外壁改修工事,1,公開中,
-2,NEW,札幌,R8.10.22,電気設備更新工事,2,公開中,
-3,NEW,旭川,R8.11.5,給排水設備改修工事,3,公開中,
-4,NEW,帯広,R8.11.12,車庫屋根補修工事,4,公開中,
-5,NEW,函館,R8.11.20,空調設備整備工事,5,公開中,
+﻿ID,AuthorId,AuthorName,Created,Category,Garrison,BidDate,Remarks,Sort,Status,OperationDate,ListKind,PublicState,TargetID,RequestType,RequestStatus,ResultURL,ResultName,VerifiedAt
+101,csv-user-1,開発ユーザー1,Sun Sep 13 2026 09:00:00 GMT+0900 (日本標準時),NEW,札幌,R8.9.10,【動作確認用】掲載終了依頼あり・まだ公告掲載中,3,入札終了登録,,planned,公告掲載中,3,掲載終了依頼,掲載終了依頼,,,
+102,csv-user-1,開発ユーザー1,Sun Sep 13 2026 09:00:00 GMT+0900 (日本標準時),,札幌,R8.9.10,【動作確認用】掲載終了後に結果PDFを登録,5,結果登録,,planned,掲載終了,5,結果登録,結果登録,R8/kouji/demo-result-5.pdf,demo-result-5.pdf,
+103,csv-user-1,開発ユーザー1,Sun Sep 13 2026 09:00:00 GMT+0900 (日本標準時),NEW,札幌,R8.9.10,【動作確認用】公告から直接結果へ・公開待ち,6,結果登録,,planned,公告掲載中,6,結果登録,公開待ち,R8/kouji/demo-result-6.pdf,demo-result-6.pdf,
+104,csv-user-1,開発ユーザー1,Sun Sep 13 2026 09:00:00 GMT+0900 (日本標準時),結果,札幌,R8.9.10,【動作確認用】結果掲載中・反映確認済み,7,結果登録,,planned,結果掲載中,7,結果登録,反映確認済み,R8/kouji/demo-result-7.pdf,demo-result-7.pdf,Sun Sep 13 2026 09:00:00 GMT+0900 (日本標準時)

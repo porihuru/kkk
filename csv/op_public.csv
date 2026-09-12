@@ -1,6 +1,9 @@
-ID,Category,Garrison,BidDate,Remarks,Sort,Status,OperationDate
-1,NEW,旭川,R8.9.25,OP案件の公告例（車両関連）,1,公開中,
-2,NEW,帯広,R8.10.2,OP案件の公告例（装備品）,2,公開中,
-3,NEW,名寄,R8.10.9,OP案件の公告例（役務）,3,公開中,
-4,NEW,東千歳,R8.10.16,OP案件の公告例（施設利用）,4,公開中,
-5,NEW,札幌,R8.10.23,OP案件の公告例（物品）,5,公開中,
+﻿ID,AuthorId,AuthorName,Created,Category,Garrison,BidDate,Remarks,Sort,Status,OperationDate,ListKind,PublicState,TargetID,RequestType,RequestStatus,ResultURL,ResultName,VerifiedAt
+1,csv-user-1,開発ユーザー1,Tue Sep 01 2026 09:00:00 GMT+0900 (日本標準時),NEW,札幌,R8.10.1,【動作確認用】公告掲載中・入札日前,1,公告反映済,,published,公告掲載中,,,,,,
+2,csv-user-1,開発ユーザー1,Tue Sep 01 2026 09:00:00 GMT+0900 (日本標準時),NEW,札幌,R8.9.10,【動作確認用】入札日到来・掲載終了確認対象,2,公告反映済,,published,公告掲載中,,,,,,
+3,csv-user-1,開発ユーザー1,Tue Sep 01 2026 09:00:00 GMT+0900 (日本標準時),NEW,札幌,R8.9.10,【動作確認用】掲載終了依頼あり・まだ公告掲載中,3,公告反映済,,published,公告掲載中,,,,,,
+4,csv-user-1,開発ユーザー1,Tue Sep 01 2026 09:00:00 GMT+0900 (日本標準時),,札幌,R8.9.10,【動作確認用】掲載終了済み・結果未登録,4,公告反映済,,published,掲載終了,,,,,,Sat Sep 12 2026 09:00:00 GMT+0900 (日本標準時)
+5,csv-user-1,開発ユーザー1,Tue Sep 01 2026 09:00:00 GMT+0900 (日本標準時),,札幌,R8.9.10,【動作確認用】掲載終了後に結果PDFを登録,5,公告反映済,,published,掲載終了,,,,,,Sat Sep 12 2026 09:00:00 GMT+0900 (日本標準時)
+6,csv-user-1,開発ユーザー1,Tue Sep 01 2026 09:00:00 GMT+0900 (日本標準時),NEW,札幌,R8.9.10,【動作確認用】公告から直接結果へ・公開待ち,6,公告反映済,,published,公告掲載中,,,,,,
+7,csv-user-1,開発ユーザー1,Tue Sep 01 2026 09:00:00 GMT+0900 (日本標準時),結果,札幌,R8.9.10,【動作確認用】結果掲載中・反映確認済み,7,結果反映済,,published,結果掲載中,,,,R8/op/demo-result-7.pdf,demo-result-7.pdf,Sat Sep 12 2026 09:00:00 GMT+0900 (日本標準時)
+8,csv-user-2,開発ユーザー2,Tue Sep 01 2026 09:00:00 GMT+0900 (日本標準時),NEW,札幌,R8.9.10,【動作確認用】他の投稿者の案件（修正権限の確認）,8,公告反映済,,published,公告掲載中,,,,,,
