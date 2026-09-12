@@ -4,12 +4,16 @@
   var FIELD_MAP = {
     "Id": "Id",
     "ID": "Id",
+    "AuthorId": "AuthorId",
+    "Created": "Created",
+    "Author/Title": "Author/Title",
     "Title": "key",
     "Type": "type",
     "Text": "text",
     "URL": "url",
     "Sort": "sort",
     "Status": "status",
+    "OperationDate": "operationdate",
     "Category": "category",
     "Garrison": "garrison",
     "BidDate": "biddate",
@@ -104,6 +108,15 @@
     }, error);
   }
 
+  SP.getCurrentUser = function (success, error) {
+    request("GET", SP.api + "/web/currentuser?$select=Id,Title,IsSiteAdmin", { "Accept": "application/json;odata=verbose" }, null, function (xhr) {
+      var user;
+      try { user = JSON.parse(xhr.responseText).d; } catch (exception) { error(xhr); return; }
+      if (!user || !user.Id) { error(xhr); return; }
+      success({ id: String(user.Id), name: user.Title || "", isAdmin: user.IsSiteAdmin === true });
+    }, error);
+  };
+
   function schema(listName, success, error) {
     var title = escapeTitle(listName);
     if (SP.fieldSchemas[listName]) {
@@ -154,6 +167,7 @@
   function normalize(item, currentSchema) {
     var logical;
     var internal;
+    if (item.Author && item.Author.Title) { item.AuthorName = item.Author.Title; }
     for (logical in FIELD_MAP) {
       if (FIELD_MAP.hasOwnProperty(logical)) {
         internal = fieldName(logical, currentSchema);
@@ -173,23 +187,29 @@
       var title = escapeTitle(listName);
       var selected = mapColumns(columns || [], currentSchema);
       var url = SP.api + "/web/lists/getbytitle('" + title + "')/items?$top=5000";
-      var items;
-      var i;
+      var items = [];
       if (selected.length) {
         url += "&$select=" + encodeURIComponent(selected.join(","));
       }
-      request("GET", url, { "Accept": "application/json;odata=verbose" }, null, function (xhr) {
+      if (selected.indexOf("Author/Title") >= 0) { url += "&$expand=Author"; }
+      function loadPage(pageUrl) {
+        request("GET", pageUrl, { "Accept": "application/json;odata=verbose" }, null, function (xhr) {
+        var page;
+        var i;
         try {
-          items = JSON.parse(xhr.responseText).d.results || [];
-          for (i = 0; i < items.length; i += 1) { normalize(items[i], currentSchema); }
-          success(items);
+          page = JSON.parse(xhr.responseText).d;
+          for (i = 0; i < (page.results || []).length; i += 1) { items.push(normalize(page.results[i], currentSchema)); }
         } catch (exception) {
           if (global.Diagnostics) {
             global.Diagnostics.error("SHAREPOINT", "リストデータの応答を解析できませんでした。", "List=" + listName + " / " + (exception && exception.message ? exception.message : exception));
           }
           error(xhr);
+          return;
         }
-      }, error);
+        if (page.__next) { loadPage(page.__next); } else { success(items); }
+        }, error);
+      }
+      loadPage(url);
     }, error);
   };
 

@@ -6,6 +6,7 @@
   var currentDatabase = null;
   var selectedMode = "";
   var selectedDatabase = "";
+  var currentUser = null;
 
   var DATABASE_KEYS = ["KOKOKU", "KOUJI", "OP", "KOBO"];
 
@@ -95,11 +96,11 @@
 
   function loadSharePoint(config, success, error) {
     var result = {};
-    var remaining = 3;
+    var remaining = 4;
     var failed = false;
     var lists = [
       { key: "settings", name: config.SETTINGS_LIST, columns: ["Id", "Type", "Text", "URL", "Sort"] },
-      { key: "announcements", name: config.ANNOUNCEMENT_LIST, columns: ["Id", "Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate"] },
+      { key: "announcements", name: config.ANNOUNCEMENT_LIST, columns: ["Id", "AuthorId", "Author/Title", "Created", "Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate"] },
       { key: "links", name: config.LINK_LIST, columns: ["Id", "KokokuID", "Text", "FileName", "URL", "Type", "Sort"] }
     ];
     var i;
@@ -123,6 +124,7 @@
       }
     }
     SP.init(config.WEB_ROOT);
+    SP.getCurrentUser(function (user) { loaded("currentUser", user); }, fail);
     if (global.Diagnostics) {
       global.Diagnostics.log("SHAREPOINT", "SharePoint接続を開始しました。", "WEB_ROOT=" + String(config.WEB_ROOT || "AUTO"));
     }
@@ -134,6 +136,7 @@
   }
 
   DataService.load = function (success, error) {
+    currentUser = null;
     readConfig(function (config) {
       currentDatabase = databaseConfig(config);
       config.SETTINGS_LIST = currentDatabase.settingsList;
@@ -142,6 +145,7 @@
       config.PDF_LIBRARY = currentDatabase.pdfLibrary;
       if (String(config.DATA_MODE || "CSV").toUpperCase() === "SHAREPOINT") {
         loadSharePoint(config, function (data) {
+          currentUser = data.currentUser;
           data.mode = "SHAREPOINT";
           data.database = currentDatabase.key;
           data.databaseName = currentDatabase.name;
@@ -149,6 +153,7 @@
         }, error);
       } else {
         CsvData.load(function (data) {
+          currentUser = { id: String(config.CSV_USER_ID || "csv-user-1"), name: config.CSV_USER_NAME || "CSV開発ユーザー", isAdmin: false };
           data.mode = "CSV";
           data.database = currentDatabase.key;
           data.databaseName = currentDatabase.name;
@@ -177,6 +182,16 @@
     return selectedMode || "CSV";
   };
 
+  DataService.getCurrentUser = function () {
+    return currentUser ? { id: currentUser.id, name: currentUser.name, isAdmin: currentUser.isAdmin } : null;
+  };
+
+  DataService.canManageAnnouncement = function (item, kind, adminActive) {
+    if (!currentUser || !item) { return false; }
+    if (adminActive && (!DataService.isSharePoint() || currentUser.isAdmin)) { return true; }
+    return kind === "planned" && String(item.AuthorId || "") !== "" && String(item.AuthorId) === currentUser.id;
+  };
+
   DataService.setDatabase = function (database) {
     database = String(database || "").toUpperCase();
     if (!hasDatabaseKey(database)) {
@@ -191,6 +206,45 @@
       return currentDatabase.key;
     }
     return selectedDatabase || "KOKOKU";
+  };
+
+  DataService.getCsvFileName = function (kind) {
+    var paths = currentDatabase || databaseConfig(currentConfig || {});
+    return String(paths[kind] || "").split(/[\\/]/).pop();
+  };
+
+  // IE11 has URL.createObjectURL, but does not support the URL constructor.
+  function resolvePublicUrl(value, baseUrl) {
+    var resolver = document.implementation.createHTMLDocument("");
+    var base = resolver.createElement("base");
+    var anchor = resolver.createElement("a");
+    base.href = baseUrl;
+    resolver.head.appendChild(base);
+    anchor.href = value;
+    resolver.body.appendChild(anchor);
+    return /^https?:$/.test(anchor.protocol) ? anchor.href : "";
+  }
+
+  DataService.getPublicHtmlUrl = function () {
+    var config = currentConfig || {};
+    var pages = { KOKOKU: "R8kokoku.html", KOUJI: "R8koukoku_kouji.html", OP: "R8open.html", KOBO: "R8koubo.html" };
+    var key = DataService.getDatabase();
+    var site = config.PUBLIC_SITE_URL || "https://www.mod.go.jp/gsdf/nae/fin/";
+    var page = config["DB_" + key + "_PUBLIC_HTML"] || "nafin/" + pages[key];
+    return resolvePublicUrl(page, site);
+  };
+
+  DataService.getPublicLinkUrl = function (value) {
+    var link = String(value || "");
+    var page = DataService.getPublicHtmlUrl();
+    var site = (currentConfig || {}).PUBLIC_SITE_URL || "https://www.mod.go.jp/gsdf/nae/fin/";
+    if (!link) { return ""; }
+    try {
+      // R8/... is relative to the published HTML; nafin/... is relative to the site.
+      return resolvePublicUrl(link, link.indexOf("nafin/") === 0 ? site : page);
+    } catch (error) {
+      return "";
+    }
   };
 
   DataService.add = function (kind, data, success, error) {

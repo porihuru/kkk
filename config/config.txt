@@ -1,7 +1,12 @@
 # 入札公告管理アプリ設定
 DATA_MODE=CSV
+# CSV開発用の仮ユーザー。SharePointではログインユーザーを使用する。
+CSV_USER_ID=csv-user-1
+CSV_USER_NAME=開発ユーザー1
 DEFAULT_DATABASE=KOKOKU
 WEB_ROOT=AUTO
+# 正本の公開サイト。WEB_ROOTはSharePoint接続用のため別に管理する。
+PUBLIC_SITE_URL=https://www.mod.go.jp/gsdf/nae/fin/
 SETTINGS_LIST=kokoku_settings
 ANNOUNCEMENT_LIST=kokoku
 LINK_LIST=kokoku_links
@@ -12,6 +17,7 @@ PDF_LIBRARY=nafin/R8/be
 
 # DBごとのCSV保存先・SharePointリスト名
 DB_KOKOKU_NAME=公告DB
+DB_KOKOKU_PUBLIC_HTML=nafin/R8kokoku.html
 DB_KOKOKU_CSV=csv/kokoku.csv
 DB_KOKOKU_PUBLIC_CSV=csv/kokoku_public.csv
 DB_KOKOKU_LINKS_CSV=csv/links.csv
@@ -23,6 +29,7 @@ DB_KOKOKU_LINK_LIST=kokoku_links
 DB_KOKOKU_PDF_LIBRARY=nafin/R8/be
 
 DB_KOUJI_NAME=工事公告DB
+DB_KOUJI_PUBLIC_HTML=nafin/R8koukoku_kouji.html
 DB_KOUJI_CSV=csv/kouji.csv
 DB_KOUJI_PUBLIC_CSV=csv/kouji_public.csv
 DB_KOUJI_LINKS_CSV=csv/kouji_links.csv
@@ -34,6 +41,7 @@ DB_KOUJI_LINK_LIST=kouji_links
 DB_KOUJI_PDF_LIBRARY=nafin/R8/kouji
 
 DB_OP_NAME=OPDB
+DB_OP_PUBLIC_HTML=nafin/R8open.html
 DB_OP_CSV=csv/op.csv
 DB_OP_PUBLIC_CSV=csv/op_public.csv
 DB_OP_LINKS_CSV=csv/op_links.csv
@@ -45,6 +53,7 @@ DB_OP_LINK_LIST=op_links
 DB_OP_PDF_LIBRARY=nafin/R8/op
 
 DB_KOBO_NAME=公募DB
+DB_KOBO_PUBLIC_HTML=nafin/R8koubo.html
 DB_KOBO_CSV=csv/kobo.csv
 DB_KOBO_PUBLIC_CSV=csv/kobo_public.csv
 DB_KOBO_LINKS_CSV=csv/kobo_links.csv

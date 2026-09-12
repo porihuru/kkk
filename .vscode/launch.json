@@ -3,15 +3,14 @@
   "configurations": [
     {
       "name": "Launch Edge",
-      "type": "msedge",
+      "type": "node",
       "request": "launch",
-      "url": "http://127.0.0.1:8000/",
-      "webRoot": "${workspaceFolder}",
-      "preLaunchTask": "Serve kkk",
-      "runtimeExecutable": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-      "runtimeArgs": [
-        "--user-data-dir=${workspaceFolder}\\.vscode\\edge-debug-profile"
-      ]
+      "program": "${workspaceFolder}/.vscode/server.js",
+      "args": ["--open"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "autoAttachChildProcesses": false,
+      "skipFiles": ["<node_internals>/**"]
     }
   ]
 }

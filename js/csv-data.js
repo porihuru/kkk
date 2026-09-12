@@ -355,6 +355,7 @@
   };
 
   CsvData.parse = function (text) {
+    text = String(text || "").replace(/^\ufeff/, "");
     var rows = [];
     var row = [];
     var value = "";

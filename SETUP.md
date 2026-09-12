@@ -2,6 +2,27 @@
 
 ## 概要
 
+### Edge 95・IE11向けの互換性確認（2026-09-13）
+
+- トップ画面は幅90%、最大1440px。ヘッダーは折り返し、一覧表の横スクロールは表内に収めます。
+- CSS Grid・flexのgap・URLコンストラクターへの依存を除去しました。
+- Edge 95のようにshowPickerがないブラウザーでは、西暦の日付欄を表示します。
+- IE11のようにdate入力がないブラウザーでは、和暦欄への直接入力を使用します。「入力」ボタンで和暦欄に移動します。
+- 全9本のブラウザー用JavaScript（辞書ライブラリを含む）のES5構文を検査しました。
+- 現行Edgeで幅375～2560pxを確認し、URLコンストラクター・showPickerがない状態の起動も検証しました。
+- Edge 95／IE11実機での描画・ファイル入出力・SharePoint接続の確認は未実施です。現行Edgeでの代替検証を実機検証済みとは扱いません。
+
+### 公開サイト（正本）の設定
+
+正本は `https://www.mod.go.jp/gsdf/nae/fin/` で公開されているHTMLです。
+`config/config.txt` の `PUBLIC_SITE_URL` とDB別の `PUBLIC_HTML` で参照先を指定します。
+公告は `nafin/R8kokoku.html`、工事は `nafin/R8koukoku_kouji.html`、
+オープンカウンターは `nafin/R8open.html`、公募は `nafin/R8koubo.html` です。
+画面の「公開中のHTMLを確認」は対象DBに応じて切り替わります。
+画面内の相対PDFリンクも公開HTMLを基準に開きます。
+`WEB_ROOT` はSharePoint接続先であり、公開サイトのURLは指定しません。
+この設定は参照先の指定であり、公開HTMLとSharePointの自動同期・照合はまだ行いません。
+
 このシステムは、防衛省陸上自衛隊北部方面隊が公開している「入札公告一覧」HTMLを、解析・編集・再生成・ZIP配布するWebアプリケーションです。
 
 ### 主な機能

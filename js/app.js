@@ -29,6 +29,14 @@
     return String(value).length < 2 ? "0" + value : String(value);
   }
 
+  function postingDateText(value) {
+    if (!value) { return "不明"; }
+    var date = new Date(value);
+    if (isNaN(date.getTime())) { return "不明"; }
+    var jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
+    return jst.getUTCFullYear() + "/" + padDatePart(jst.getUTCMonth() + 1) + "/" + padDatePart(jst.getUTCDate()) + " " + padDatePart(jst.getUTCHours()) + ":" + padDatePart(jst.getUTCMinutes());
+  }
+
   function toReiwaDate(date) {
     return "R" + (date.getFullYear() - 2018) + "." + (date.getMonth() + 1) + "." + date.getDate();
   }
@@ -69,12 +77,23 @@
 
   function setupDateInput() {
     var picker = byId("date-picker-input");
+    if (!picker.showPicker && picker.type === "date") {
+      picker.className = "date-picker-visible";
+      picker.removeAttribute("aria-hidden");
+      picker.removeAttribute("tabindex");
+      picker.setAttribute("aria-label", "入札日（西暦）");
+    } else if (picker.type !== "date") {
+      byId("date-picker-button").innerHTML = "入力";
+      byId("date-picker-button").setAttribute("aria-label", "入札日を直接入力（例：R8.9.13）");
+    }
     byId("date-input").onchange = function () {
       syncDatePicker();
       updatePdfLinks();
     };
     byId("date-picker-button").onclick = function () {
-      if (picker.showPicker) {
+      if (picker.type !== "date") {
+        byId("date-input").focus();
+      } else if (picker.showPicker) {
         picker.showPicker();
       } else {
         picker.focus();
@@ -246,7 +265,7 @@
     var state = listState(kind);
     var listElement = byId(kind === "planned" ? "planned-announcement-list" : "announcement-list");
     var countElement = byId(kind === "planned" ? "planned-record-count" : "record-count");
-    var canOperate = kind === "planned" || adminActive;
+    var canOperate;
     var html = [];
     var i;
     var links;
@@ -261,11 +280,12 @@
     }
     countElement.innerHTML = announcements.length + "件";
     if (!announcements.length) {
-      listElement.innerHTML = '<tr><td colspan="9" class="empty-row">該当する公告はありません。</td></tr>';
+      listElement.innerHTML = '<tr><td colspan="' + (kind === "planned" ? "11" : "9") + '" class="empty-row">該当する公告はありません。</td></tr>';
       return;
     }
 
     for (i = 0; i < announcements.length; i += 1) {
+      canOperate = DataService.canManageAnnouncement(announcements[i], kind, adminActive);
       links = linksFor(announcements[i].ID, state.links);
       categoryClass = announcements[i].Category === "NEW" ? "category" : "category category-change";
       upDisabled = i === 0 ? " disabled" : "";
@@ -291,19 +311,23 @@
       }
       html.push("</td>");
       html.push("<td class=\"operation-date-cell\">" + escapeHtml(announcements[i].OperationDate || "—") + "</td>");
+      if (kind === "planned") {
+        html.push("<td class=\"author-cell\">" + escapeHtml(announcements[i].AuthorName || (announcements[i].AuthorId ? "ID: " + announcements[i].AuthorId : "不明")) + "</td>");
+        html.push("<td class=\"operation-date-cell\">" + escapeHtml(postingDateText(announcements[i].Created)) + "</td>");
+      }
       html.push("<td class=\"status-cell\">" + escapeHtml(announcements[i].Status) + "</td>");
       html.push("<td><span class=\"" + categoryClass + "\">" + escapeHtml(announcements[i].Category) + "</span></td>");
-      html.push("<td>" + escapeHtml(announcements[i].Garrison) + "</td>");
-      html.push("<td><ul class=\"link-list\">");
+      html.push("<td class=\"garrison-cell\">" + escapeHtml(announcements[i].Garrison) + "</td>");
+      html.push("<td class=\"subject-cell\"><ul class=\"link-list\">");
       for (j = 0; j < links.length; j += 1) {
-        html.push("<li><a href=\"" + escapeHtml(links[j].URL) + "\">" + escapeHtml(links[j].Text) + "</a></li>");
+        html.push("<li><a href=\"" + escapeHtml(DataService.getPublicLinkUrl(links[j].URL)) + "\" target=\"_blank\" rel=\"noopener noreferrer\">" + escapeHtml(links[j].Text) + "</a></li>");
       }
       if (!links.length) {
         html.push("<li>（PDF未登録）</li>");
       }
       html.push("</ul></td>");
       html.push("<td>" + escapeHtml(announcements[i].BidDate) + "</td>");
-      html.push("<td>" + escapeHtml(announcements[i].Remarks) + "</td>");
+      html.push("<td class=\"remarks-cell\">" + escapeHtml(announcements[i].Remarks) + "</td>");
       html.push("</tr>");
     }
     listElement.innerHTML = html.join("");
@@ -347,7 +371,7 @@
     var state = listState(kind);
     var announcement = announcementById(this.getAttribute("data-id"), state.announcements);
     var links;
-    if (kind === "published" && !adminActive) {
+    if (!DataService.canManageAnnouncement(announcement, kind, adminActive)) {
       return;
     }
     if (!announcement) {
@@ -415,6 +439,8 @@
     }
     function saveLinks(savedAnnouncement) {
       var savedId = savedAnnouncement && (savedAnnouncement.Id || savedAnnouncement.ID);
+      if (savedId) { announcement.Id = savedId; }
+      if (savedAnnouncement && savedAnnouncement.Created) { announcement.Created = savedAnnouncement.Created; }
       var link;
       var linkPayload;
       var selectedFile;
@@ -427,7 +453,9 @@
             byId("form-message").innerHTML = "公告は保存しましたが、リンクの更新に失敗しました。";
           });
         } else {
-          DataService.add("links", linkPayload, function () {}, function () {
+          DataService.add("links", linkPayload, (function (savedLink) {
+            return function (result) { if (result) { savedLink.Id = result.Id || result.ID; } };
+          }(link)), function () {
             byId("form-message").innerHTML = "公告は保存しましたが、リンクの保存に失敗しました。";
           });
         }
@@ -469,6 +497,10 @@
     if (event) {
       event.preventDefault();
     }
+    if (!DataService.getCurrentUser() || (id && (!announcement || !DataService.canManageAnnouncement(announcement, targetKind, adminActive)))) {
+      byId("form-message").innerHTML = "この投稿を修正する権限がありません。";
+      return false;
+    }
     if (!isAllowed(byId("category-input").value, ALLOWED_CATEGORIES)) {
       byId("form-message").innerHTML = "区分はNEW、空白、結果のいずれかを選択してください。";
       return false;
@@ -503,7 +535,7 @@
     }
     if (!announcement) {
       id = nextId(state.announcements);
-      announcement = { ID: id, Sort: String(state.announcements.length + 1), Status: "公告登録", OperationDate: "" };
+      announcement = { ID: id, AuthorId: DataService.getCurrentUser().id, AuthorName: DataService.getCurrentUser().name, Created: new Date().toISOString(), Sort: String(state.announcements.length + 1), Status: "公告登録", OperationDate: "" };
       state.announcements.unshift(announcement);
     }
     announcement.Category = byId("category-input").value;
@@ -602,7 +634,7 @@
     var i;
     var announcement = announcementById(id, state.announcements);
     var deletedLinks;
-    if (kind === "published" && !adminActive) {
+    if (!DataService.canManageAnnouncement(announcement, kind, adminActive)) {
       return;
     }
     if (!window.confirm("この公告を削除しますか？")) {
@@ -753,11 +785,12 @@
 
   function showError() {
     byId("data-status").innerHTML = "接続失敗。データを表示できませんが、アプリは継続しています。";
-    byId("planned-announcement-list").innerHTML = '<tr><td colspan="9" class="empty-row">データを表示できません。</td></tr>';
+    byId("planned-announcement-list").innerHTML = '<tr><td colspan="11" class="empty-row">データを表示できません。</td></tr>';
     byId("announcement-list").innerHTML = '<tr><td colspan="9" class="empty-row">データを表示できません。</td></tr>';
   }
 
   function applyLoadedData(data) {
+    deactivateAdmin();
     preserveAnnouncementOrder = false;
     preservePlannedOrder = true;
     plannedAnnouncements = normalizeAnnouncements(data.announcements || []);
@@ -766,7 +799,10 @@
     allLinks = data.publishedLinks || [];
     allSettings = dateOnlySettings(data.settings || []);
     byId("database-input").value = data.database || "KOKOKU";
+    byId("public-html-link").href = DataService.getPublicHtmlUrl();
     byId("data-mode-input").value = data.mode === "SHAREPOINT" ? "SHAREPOINT" : "CSV";
+    var user = DataService.getCurrentUser();
+    byId("current-user").textContent = (data.mode === "SHAREPOINT" ? "ログイン：" : "CSV仮ユーザー：") + (user ? user.name + "（" + user.id + "）" : "未確認");
     byId("database-apply").disabled = false;
     byId("data-mode-apply").disabled = false;
     byId("data-status").innerHTML = (data.databaseName || "公告DB") + " / " + (data.mode === "SHAREPOINT" ? "SharePointリスト" : "CSVモード") + " / 読み込み完了";
@@ -775,6 +811,7 @@
   }
 
   function loadData() {
+    deactivateAdmin();
     byId("database-apply").disabled = true;
     byId("data-mode-apply").disabled = true;
     DataService.load(applyLoadedData, function () {
@@ -833,7 +870,12 @@
   }
 
   function activateAdmin() {
-    if (byId("admin-password").value !== ADMIN_PASSWORD) {
+    var user = DataService.getCurrentUser();
+    if (!user || (DataService.isSharePoint() && !user.isAdmin)) {
+      byId("admin-message").innerHTML = "管理者権限を確認できません。";
+      return;
+    }
+    if (!DataService.isSharePoint() && byId("admin-password").value !== ADMIN_PASSWORD) {
       byId("admin-message").innerHTML = "パスワードが正しくありません。";
       return;
     }
@@ -889,27 +931,27 @@
   }
 
   function exportAnnouncements() {
-    downloadCsv("kokoku.csv", CsvData.toCsv(allAnnouncements, ["ID", "Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate"]));
+    downloadCsv(DataService.getCsvFileName("publishedAnnouncements"), CsvData.toCsv(allAnnouncements, ["ID", "AuthorId", "AuthorName", "Created", "Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate"]));
     byId("form-message").innerHTML = "公告CSVを出力しました。";
   }
 
   function exportPlannedAnnouncements() {
-    downloadCsv("kokoku_planned.csv", CsvData.toCsv(plannedAnnouncements, ["ID", "Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate"]));
+    downloadCsv(DataService.getCsvFileName("announcements"), CsvData.toCsv(plannedAnnouncements, ["ID", "AuthorId", "AuthorName", "Created", "Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate"]));
     byId("form-message").innerHTML = "公告予定CSVを出力しました。";
   }
 
   function exportLinks() {
-    downloadCsv("links.csv", CsvData.toCsv(allLinks, ["ID", "KokokuID", "Text", "FileName", "URL", "Type", "Sort"]));
+    downloadCsv(DataService.getCsvFileName("publishedLinks"), CsvData.toCsv(allLinks, ["ID", "KokokuID", "Text", "FileName", "URL", "Type", "Sort"]));
     byId("form-message").innerHTML = "リンクCSVを出力しました。";
   }
 
   function exportPlannedLinks() {
-    downloadCsv("links_planned.csv", CsvData.toCsv(plannedLinks, ["ID", "KokokuID", "Text", "FileName", "URL", "Type", "Sort"]));
+    downloadCsv(DataService.getCsvFileName("links"), CsvData.toCsv(plannedLinks, ["ID", "KokokuID", "Text", "FileName", "URL", "Type", "Sort"]));
     byId("form-message").innerHTML = "公告予定リンクCSVを出力しました。";
   }
 
   function exportSettings() {
-    downloadCsv("settings.csv", CsvData.toCsv(allSettings, ["ID", "Type", "Text", "URL", "Sort"]));
+    downloadCsv(DataService.getCsvFileName("settings"), CsvData.toCsv(allSettings, ["ID", "Type", "Text", "URL", "Sort"]));
     byId("form-message").innerHTML = "設定CSVを出力しました。";
   }
 

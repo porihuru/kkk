@@ -3,8 +3,9 @@
   "tasks": [
     {
       "label": "Serve kkk",
-      "type": "shell",
-      "command": "node .vscode/server.js",
+      "type": "process",
+      "command": "node",
+      "args": ["${workspaceFolder}/.vscode/server.js"],
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -12,16 +13,19 @@
       "problemMatcher": {
         "owner": "custom",
         "pattern": {
-          "regexp": ".*"
+          "regexp": "^(?!)(.*)(.*)$",
+          "kind": "file",
+          "file": 1,
+          "message": 2
         },
         "background": {
           "activeOnStart": true,
-          "beginsPattern": ".*",
-          "endsPattern": "Serving HTTP on .*"
+          "beginsPattern": "^Starting kkk server$",
+          "endsPattern": "^Serving HTTP on .*"
         }
       },
       "presentation": {
-        "reveal": "never",
+        "reveal": "always",
         "panel": "dedicated",
         "showReuseMessage": false
       }
