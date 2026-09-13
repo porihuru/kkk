@@ -193,7 +193,7 @@
 
   DataService.canManageAnnouncement = function (item, kind, adminActive) {
     if (!currentUser || !item) { return false; }
-    if (item.RequestStatus === "公開待ち" || item.RequestStatus === "反映確認済み") { return false; }
+    if (item.RequestStatus === "公開待ち" || item.RequestStatus === "反映確認済み" || item.RequestStatus === "公開済") { return false; }
     if (adminActive && (!DataService.isSharePoint() || currentUser.isAdmin)) { return true; }
     return kind === "planned" && String(item.AuthorId || "") !== "" && String(item.AuthorId) === currentUser.id;
   };
@@ -235,12 +235,21 @@
     return /^https?:$/.test(anchor.protocol) ? anchor.href : "";
   }
 
-  DataService.getPublicHtmlUrl = function () {
+  DataService.getPublicHtmlPath = function () {
     var config = currentConfig || {};
     var pages = { KOKOKU: "R8kokoku.html", KOUJI: "R8koukoku_kouji.html", OP: "R8open.html", KOBO: "R8koubo.html" };
     var key = DataService.getDatabase();
+    return config["DB_" + key + "_PUBLIC_HTML"] || "nafin/" + pages[key];
+  };
+
+  DataService.getPublicHtmlFileName = function () {
+    return DataService.getPublicHtmlPath().split("/").pop();
+  };
+
+  DataService.getPublicHtmlUrl = function () {
+    var config = currentConfig || {};
     var site = config.PUBLIC_SITE_URL || "https://www.mod.go.jp/gsdf/nae/fin/";
-    var page = config["DB_" + key + "_PUBLIC_HTML"] || "nafin/" + pages[key];
+    var page = DataService.getPublicHtmlPath();
     return resolvePublicUrl(page, site);
   };
 

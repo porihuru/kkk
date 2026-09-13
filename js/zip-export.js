@@ -52,27 +52,30 @@
     return bytes;
   }
 
-  ZipExport.create = function (files, success) {
+  ZipExport.create = function (files, success, error) {
     var local = [];
     var central = [];
     var offset = 0;
     var finished = 0;
     var i;
+    var failed = false;
+    function fail() { if (!failed) { failed = true; if (error) { error(); } } }
 
     function addFile(file) {
+      if (failed) { return; }
       var name = ascii(file.name);
       var binary = file.binary ? file.content : utf8(file.content);
       var checksum = crc32(binary);
       var header = "PK\x03\x04" + word(20) + word(0) + word(0) + word(0) + word(0) + dword(checksum) + dword(binary.length) + dword(binary.length) + word(name.length) + word(0) + name;
       var entry = "PK\x01\x02" + word(20) + word(20) + word(0) + word(0) + word(0) + word(0) + dword(checksum) + dword(binary.length) + dword(binary.length) + word(name.length) + word(0) + word(0) + word(0) + word(0) + dword(0) + dword(offset) + name;
-      local.push(header);
+      local.push(toBytes(header));
       local.push(toBytes(binary));
       central.push(entry);
       offset += header.length + binary.length;
       finished += 1;
       if (finished === files.length) {
         central.push("PK\x05\x06" + word(0) + word(0) + word(files.length) + word(files.length) + dword(central.join("").length) + dword(offset) + word(0));
-        success(new Blob([local.join(""), central.join("")], { type: "application/zip" }));
+        success(new Blob(local.concat([toBytes(central.join(""))]), { type: "application/zip" }));
       }
     }
 
@@ -86,8 +89,14 @@
       } else {
         (function (file) {
           var reader = new FileReader();
-          reader.onload = function () { addFile({ name: file.name, content: reader.result, binary: true }); };
-          reader.readAsBinaryString(file.file);
+          reader.onload = function () {
+            var bytes = new Uint8Array(reader.result), binary = "", j;
+            for (j = 0; j < bytes.length; j += 1) { binary += String.fromCharCode(bytes[j]); }
+            addFile({ name: file.name, content: binary, binary: true });
+          };
+          reader.onerror = fail;
+          reader.onabort = fail;
+          try { reader.readAsArrayBuffer(file.file); } catch (exception) { fail(); }
         }(files[i]));
       }
     }

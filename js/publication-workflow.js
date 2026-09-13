@@ -12,7 +12,7 @@
     if (d.getUTCFullYear() !== y || d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) { return false; }
     return (now || new Date()).getTime() >= d.getTime() - 9 * 3600000;
   };
-  W.active = function (request) { return request.RequestType && request.RequestStatus !== "反映確認済み"; };
+  W.active = function (request) { return request.RequestType && request.RequestStatus !== "反映確認済み" && request.RequestStatus !== "公開済"; };
   W.validate = function (request, announcements) {
     var target = null, i;
     for (i = 0; i < announcements.length; i += 1) { if (String(announcements[i].ID) === String(request.TargetID)) { target = announcements[i]; } }

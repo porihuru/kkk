@@ -37,6 +37,12 @@
 CSV保存には予定・本リストの公告CSV、リンクCSV、設定CSVの出力が必要です。状態・元公告ID・結果PDFのURL・反映確認日時も公告CSVに含みます。
 再読込やDB切替で未出力のメモリ上の変更と選択ファイルは失われます。PDFバイナリはCSVに入りません。結果PDFが手元にない場合はZIP出力を止めます。
 
+## ZIP作成時の公開済み更新（2026-09-13変更）
+
+現在はZIP作成とダウンロード開始が成功した時点で、含まれる公告を反映済み、更新依頼を「公開済」にします。新規公告の本リスト移動は「公開待ち」です。HTML単体出力・プレビューでは状態を変更しません。公開HTMLとの照合は公開後の一致確認として行い、公開済み依頼を「反映確認済み」にします。
+
+保存失敗時は未保存警告を表示します。通常公告・リンク・PDF・移動・並べ替え・削除・ZIP作成後の記録は、失敗した手順から再保存できます。権限・列定義・実環境試験はREADMEの4.2節を参照してください。
+
 ## SharePointへの接続準備
 
 公告リストに以下の内部名のテキスト列が必要です。実リストは未変更・未接続です。
@@ -47,7 +53,7 @@ CSV保存には予定・本リストの公告CSV、リンクCSV、設定CSVの�
 | PublicState | publicstate | 公告掲載中／掲載終了／結果掲載中 |
 | TargetID | targetid | 元公告のSharePoint ID |
 | RequestType | requesttype | 掲載終了依頼／結果登録 |
-| RequestStatus | requeststatus | 依頼の種類／公開待ち／反映確認済み |
+| RequestStatus | requeststatus | 依頼の種類／公開待ち／公開済／反映確認済み |
 | ResultURL | resulturl | 公開する結果PDFの相対URL |
 | ResultName | resultname | 登録時の結果PDF名 |
 | VerifiedAt | verifiedat | 照合成功日時（ISO 8601） |

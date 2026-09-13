@@ -29,6 +29,7 @@
     "KokokuID": "kokokuid",
     "FileName": "filename"
   };
+  var etags = {};
   var SP = { webRoot: "", api: "", digest: "", digestExpire: 0, entityTypes: {}, fieldSchemas: {} };
 
   function escapeTitle(value) {
@@ -89,6 +90,7 @@
     SP.digestExpire = 0;
     SP.entityTypes = {};
     SP.fieldSchemas = {};
+    etags = {};
     if (global.Diagnostics) {
       global.Diagnostics.log("SHAREPOINT", "SharePoint APIルートを設定しました。", SP.api);
     }
@@ -206,7 +208,7 @@
         var i;
         try {
           page = JSON.parse(xhr.responseText).d;
-          for (i = 0; i < (page.results || []).length; i += 1) { items.push(normalize(page.results[i], currentSchema)); }
+          for (i = 0; i < (page.results || []).length; i += 1) { items.push(normalize(page.results[i], currentSchema)); if (page.results[i].__metadata) { etags[listName + ":" + page.results[i].Id] = page.results[i].__metadata.etag; } }
         } catch (exception) {
           if (global.Diagnostics) {
             global.Diagnostics.error("SHAREPOINT", "リストデータの応答を解析できませんでした。", "List=" + listName + " / " + (exception && exception.message ? exception.message : exception));
@@ -250,6 +252,7 @@
             try {
               result = JSON.parse(xhr.responseText).d;
               normalize(result, currentSchema);
+              if (result.__metadata) { etags[listName + ":" + result.Id] = result.__metadata.etag; }
               success(result);
             } catch (exception) {
               if (global.Diagnostics) {
@@ -263,6 +266,19 @@
     }, error);
   };
 
+  function guardedWrite(listName, itemId, url, headers, body, success, error) {
+    var key = listName + ":" + itemId, tag = etags[key];
+    if (!tag) { if (error) { error({ status: 409, responseText: "競合確認情報がありません。再読込してください。" }); } return; }
+    headers["IF-MATCH"] = tag;
+    request("POST", url, headers, body, function (xhr) {
+      // Never fetch a newer version after writing: that could silently accept another user's edit.
+      var nextTag = xhr.getResponseHeader ? xhr.getResponseHeader("ETag") : null;
+      if (nextTag) { etags[key] = nextTag; }
+      else { delete etags[key]; }
+      if (success) { success(xhr); }
+    }, error);
+  }
+
   SP.update = function (listName, itemId, data, success, error) {
     schema(listName, function (currentSchema) {
       entityType(listName, function (type) {
@@ -271,7 +287,7 @@
           var key;
           var title = escapeTitle(listName);
           for (key in data) { if (data.hasOwnProperty(key)) { body[fieldName(key, currentSchema)] = data[key]; } }
-          request("POST", SP.api + "/web/lists/getbytitle('" + title + "')/items(" + itemId + ")", { "Accept": "application/json;odata=verbose", "Content-Type": "application/json;odata=verbose", "X-RequestDigest": digest, "X-HTTP-Method": "MERGE", "IF-MATCH": "*" }, JSON.stringify(body), success, error);
+          guardedWrite(listName, itemId, SP.api + "/web/lists/getbytitle('" + title + "')/items(" + itemId + ")", { "Accept": "application/json;odata=verbose", "Content-Type": "application/json;odata=verbose", "X-RequestDigest": digest, "X-HTTP-Method": "MERGE", "IF-MATCH": "*" }, JSON.stringify(body), success, error);
         }, error);
       }, error);
     }, error);
@@ -280,7 +296,7 @@
   SP.remove = function (listName, itemId, success, error) {
     getDigest(function (digest) {
       var title = escapeTitle(listName);
-      request("POST", SP.api + "/web/lists/getbytitle('" + title + "')/items(" + itemId + ")", { "Accept": "application/json;odata=verbose", "X-RequestDigest": digest, "X-HTTP-Method": "DELETE", "IF-MATCH": "*" }, null, success, error);
+      guardedWrite(listName, itemId, SP.api + "/web/lists/getbytitle('" + title + "')/items(" + itemId + ")", { "Accept": "application/json;odata=verbose", "X-RequestDigest": digest, "X-HTTP-Method": "DELETE", "IF-MATCH": "*" }, null, success, error);
     }, error);
   };
 
