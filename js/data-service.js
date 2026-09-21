@@ -100,7 +100,7 @@
     var failed = false;
     var lists = [
       { key: "settings", name: config.SETTINGS_LIST, columns: ["Id", "Type", "Text", "URL", "Sort"] },
-      { key: "announcements", name: config.ANNOUNCEMENT_LIST, columns: ["Id", "AuthorId", "Author/Title", "Created", "Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate", "ListKind", "PublicState", "TargetID", "RequestType", "RequestStatus", "ResultURL", "ResultName", "VerifiedAt"] },
+      { key: "announcements", name: config.ANNOUNCEMENT_LIST, columns: ["Id", "AuthorId", "Author/Title", "Created", "Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate", "ListKind", "PublicState", "VerifiedAt", "WorkType", "SourceAnnouncementID", "WorkflowKey", "ResultSubmittedById", "ResultSubmittedByName", "ResultSubmittedAt"] },
       { key: "links", name: config.LINK_LIST, columns: ["Id", "KokokuID", "Text", "FileName", "URL", "Type", "Sort"] }
     ];
     var i;
@@ -193,7 +193,6 @@
 
   DataService.canManageAnnouncement = function (item, kind, adminActive) {
     if (!currentUser || !item) { return false; }
-    if (item.RequestStatus === "公開待ち" || item.RequestStatus === "反映確認済み" || item.RequestStatus === "公開済") { return false; }
     if (adminActive && (!DataService.isSharePoint() || currentUser.isAdmin)) { return true; }
     return kind === "planned" && String(item.AuthorId || "") !== "" && String(item.AuthorId) === currentUser.id;
   };
@@ -266,6 +265,24 @@
     }
   };
 
+  DataService.getPdfPreviewUrl = function (value, fileName) {
+    var link = String(value || "");
+    var name = String(fileName || link.split("/").pop() || "");
+    var library;
+    var root;
+    var path;
+    if (!DataService.isSharePoint()) { return DataService.getPublicLinkUrl(link); }
+    library = String((currentDatabase && currentDatabase.pdfLibrary) || (currentConfig && currentConfig.PDF_LIBRARY) || "").replace(/\/$/, "");
+    root = global.SP && global.SP.webRoot ? global.SP.webRoot : String((currentConfig && currentConfig.WEB_ROOT) || "");
+    if (!library || !name) { return ""; }
+    try { name = decodeURIComponent(name); } catch (ignore) {}
+    if (!/^https?:\/\//i.test(library) && library.charAt(0) !== "/") {
+      library = String(root || "").replace(/\/$/, "") + "/" + library;
+    }
+    path = library + "/" + encodeURIComponent(name);
+    return resolvePublicUrl(path, global.location.href);
+  };
+
   DataService.add = function (kind, data, success, error) {
     if (String(currentConfig.DATA_MODE || "CSV").toUpperCase() === "SHAREPOINT") {
       SP.add(listName(kind), data, success, error);
@@ -300,6 +317,27 @@
       return;
     }
     SP.uploadFile((currentDatabase && currentDatabase.pdfLibrary) || currentConfig.PDF_LIBRARY, fileName, file, success, error);
+  };
+
+  DataService.readPdf = function (link, success, error) {
+    var request;
+    var url;
+    if (!DataService.isSharePoint()) { if (error) { error(); } return; }
+    url = DataService.getPdfPreviewUrl(link.URL, link.FileName);
+    if (!url) { if (error) { error(); } return; }
+    request = new XMLHttpRequest();
+    request.open("GET", url, true);
+    request.responseType = "arraybuffer";
+    request.onreadystatechange = function () {
+      if (request.readyState !== 4) { return; }
+      if (request.status >= 200 && request.status < 300 && request.response) {
+        success(new Blob([request.response], { type: "application/pdf" }));
+      } else {
+        if (global.Diagnostics) { global.Diagnostics.httpError("PDF", "GET", url, request); }
+        if (error) { error(request); }
+      }
+    };
+    request.send(null);
   };
 
   global.DataService = DataService;

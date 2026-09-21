@@ -614,6 +614,12 @@ tr:last-child td {
   margin-bottom: 0;
 }
 
+.pdf-preview-button {
+  margin-left: 6px;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
 a {
   color: #17627a;
 }
@@ -651,9 +657,6 @@ a {
 }
 
 .due-notice { color: #9c411b; font-size: 12px; white-space: normal; }
-#publication-request-panel label,
-#publication-request-panel select,
-#publication-request-panel input { margin: 8px 8px 8px 0; }
 .status-cell small { display: inline-block; white-space: normal; max-width: 180px; }
 
 @media screen and (max-width: 640px) {

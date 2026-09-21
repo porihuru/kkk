@@ -5,7 +5,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>入札公告管理</title>
-  <link rel="stylesheet" href="css/style.css?v=20260913-6">
+  <link rel="stylesheet" href="css/style.css?v=20260921-3">
 </head>
 <body>
   <script type="text/javascript" src="js/error-notice.js?v=20260913-1"></script>
@@ -69,7 +69,6 @@
     <section class="editor" aria-label="公告編集">
       <div class="section-heading">
         <h2 id="editor-title">公告を新規登録</h2>
-        <button id="cancel-edit" type="button" class="button button-secondary hidden">入力を取り消す</button>
       </div>
       <form id="announcement-form">
         <input id="announcement-id" type="hidden" value="">
@@ -128,6 +127,7 @@
             <input id="link-url-input-1" class="pdf-url-input" type="text" placeholder="R8/be/example.pdf" readonly>
             <label for="pdf-file-input-1">PDF</label>
             <input id="pdf-file-input-1" class="pdf-file-input" type="file" accept="application/pdf">
+            <button id="pdf-file-clear-1" type="button" class="button button-small button-secondary result-file-clear hidden" data-row="0">ファイル削除</button>
           </div>
           <div class="pdf-link-row">
             <span class="pdf-row-number">2</span>
@@ -137,6 +137,7 @@
             <input id="link-url-input-2" class="pdf-url-input" type="text" placeholder="R8/be/example.pdf" readonly>
             <label for="pdf-file-input-2">PDF</label>
             <input id="pdf-file-input-2" class="pdf-file-input" type="file" accept="application/pdf">
+            <button id="pdf-file-clear-2" type="button" class="button button-small button-secondary result-file-clear hidden" data-row="1">ファイル削除</button>
           </div>
           <div class="pdf-link-row">
             <span class="pdf-row-number">3</span>
@@ -146,6 +147,7 @@
             <input id="link-url-input-3" class="pdf-url-input" type="text" placeholder="R8/be/example.pdf" readonly>
             <label for="pdf-file-input-3">PDF</label>
             <input id="pdf-file-input-3" class="pdf-file-input" type="file" accept="application/pdf">
+            <button id="pdf-file-clear-3" type="button" class="button button-small button-secondary result-file-clear hidden" data-row="2">ファイル削除</button>
           </div>
           <div class="pdf-link-row">
             <span class="pdf-row-number">4</span>
@@ -155,6 +157,7 @@
             <input id="link-url-input-4" class="pdf-url-input" type="text" placeholder="R8/be/example.pdf" readonly>
             <label for="pdf-file-input-4">PDF</label>
             <input id="pdf-file-input-4" class="pdf-file-input" type="file" accept="application/pdf">
+            <button id="pdf-file-clear-4" type="button" class="button button-small button-secondary result-file-clear hidden" data-row="3">ファイル削除</button>
           </div>
           <div class="pdf-link-row">
             <span class="pdf-row-number">5</span>
@@ -164,31 +167,18 @@
             <input id="link-url-input-5" class="pdf-url-input" type="text" placeholder="R8/be/example.pdf" readonly>
             <label for="pdf-file-input-5">PDF</label>
             <input id="pdf-file-input-5" class="pdf-file-input" type="file" accept="application/pdf">
+            <button id="pdf-file-clear-5" type="button" class="button button-small button-secondary result-file-clear hidden" data-row="4">ファイル削除</button>
           </div>
           <button type="submit" class="button">保存</button>
+          <button id="cancel-edit" type="button" class="button button-secondary hidden">キャンセル</button>
         </div>
       </form>
       <p id="form-message" class="form-message" aria-live="polite"></p>
     </section>
 
-    <section id="publication-request-panel" class="editor hidden">
-      <h2>公開公告への更新依頼</h2>
-      <p id="publication-target"></p>
-      <form id="publication-request-form">
-        <input id="publication-target-id" type="hidden">
-        <input id="publication-request-id" type="hidden">
-        <label for="publication-request-type">依頼内容</label>
-        <select id="publication-request-type"><option>掲載終了依頼</option><option>結果登録</option></select>
-        <label for="publication-result-file">結果PDF（結果登録の場合）</label>
-        <input id="publication-result-file" type="file" accept=".pdf,application/pdf">
-        <button type="submit" class="button">依頼を登録</button>
-        <button id="publication-request-cancel" type="button" class="button button-secondary">閉じる</button>
-      </form>
-      <p id="publication-request-message" aria-live="polite"></p>
-    </section>
     <section class="toolbar admin-only-control hidden">
       <h2>公開後の反映確認</h2>
-      <p>公開サイトから取得したHTMLファイルを選択してください。公開待ちの内容と公告・並び順・PDFリンクを照合します。PDFの中身は照合しません。</p>
+      <p>公開サイトから取得したHTMLファイルを選択してください。公告内容・並び順・PDFリンクを照合します。PDFの中身は照合しません。</p>
       <input id="published-check-file" type="file" accept=".html,.htm,text/html" aria-label="公開サイトから取得したHTML">
       <button id="published-check" type="button" class="button">公開HTMLを照合</button>
       <p id="published-check-message" aria-live="polite"></p>
@@ -240,6 +230,7 @@
        <button id="export-update-zip" type="button" class="button export-button admin-only-control hidden">更新分ZIP</button>
        <button id="export-full-zip" type="button" class="button export-button admin-only-control hidden">全データZIP</button>
        <button id="show-deleted" type="button" class="button export-button admin-only-control hidden">削除一覧</button>
+       <p id="zip-message" class="form-message" role="status" aria-live="assertive"></p>
     </section>
 
     <section class="table-wrap">
@@ -280,14 +271,14 @@
   </main>
 
   <script type="text/javascript" src="js/csv-data.js?v=20260913-6"></script>
-  <script type="text/javascript" src="js/sp.js?v=20260913-6"></script>
-  <script type="text/javascript" src="js/data-service.js?v=20260913-6"></script>
+  <script type="text/javascript" src="js/sp.js?v=20260922-1"></script>
+  <script type="text/javascript" src="js/data-service.js?v=20260922-1"></script>
   <script type="text/javascript" src="js/html-export.js?v=20260830-2"></script>
   <script type="text/javascript" src="js/html-import.js?v=20260829-2"></script>
   <script type="text/javascript" src="js/zip-export.js?v=20260829-2"></script>
   <script type="text/javascript" src="jisyo/kuromoji.js"></script>
   <script type="text/javascript" src="js/filename-generator.js?v=20260911-1"></script>
-  <script type="text/javascript" src="js/publication-workflow.js?v=20260913-6"></script>
-  <script type="text/javascript" src="js/app.js?v=20260913-6"></script>
+  <script type="text/javascript" src="js/publication-workflow.js?v=20260922-1"></script>
+  <script type="text/javascript" src="js/app.js?v=20260922-1"></script>
 </body>
 </html>

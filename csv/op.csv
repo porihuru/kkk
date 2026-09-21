@@ -1,5 +1,4 @@
-﻿ID,AuthorId,AuthorName,Created,Category,Garrison,BidDate,Remarks,Sort,Status,OperationDate,ListKind,PublicState,TargetID,RequestType,RequestStatus,ResultURL,ResultName,VerifiedAt
-101,csv-user-1,開発ユーザー1,Sun Sep 13 2026 09:00:00 GMT+0900 (日本標準時),NEW,札幌,R8.9.10,【動作確認用】掲載終了依頼あり・まだ公告掲載中,3,入札終了登録,,planned,公告掲載中,3,掲載終了依頼,掲載終了依頼,,,
-102,csv-user-1,開発ユーザー1,Sun Sep 13 2026 09:00:00 GMT+0900 (日本標準時),,札幌,R8.9.10,【動作確認用】掲載終了後に結果PDFを登録,5,結果登録,,planned,掲載終了,5,結果登録,結果登録,R8/op/demo-result-5.pdf,demo-result-5.pdf,
-103,csv-user-1,開発ユーザー1,Sun Sep 13 2026 09:00:00 GMT+0900 (日本標準時),NEW,札幌,R8.9.10,【動作確認用】公告から直接結果へ・公開待ち,6,結果登録,,planned,公告掲載中,6,結果登録,公開待ち,R8/op/demo-result-6.pdf,demo-result-6.pdf,
-104,csv-user-1,開発ユーザー1,Sun Sep 13 2026 09:00:00 GMT+0900 (日本標準時),結果,札幌,R8.9.10,【動作確認用】結果掲載中・反映確認済み,7,結果登録,,planned,結果掲載中,7,結果登録,反映確認済み,R8/op/demo-result-7.pdf,demo-result-7.pdf,Sun Sep 13 2026 09:00:00 GMT+0900 (日本標準時)
+﻿ID,AuthorId,AuthorName,Created,Category,Garrison,BidDate,Remarks,Sort,Status,OperationDate,ListKind,PublicState,VerifiedAt,WorkType,SourceAnnouncementID,WorkflowKey,ResultSubmittedById,ResultSubmittedByName,ResultSubmittedAt
+201,csv-user-1,開発ユーザー1,2026-09-21T00:00:00Z,NEW,札幌,R8.10.10,【ダミー】コピー用紙の見積依頼／新規登録・本リストへの登録確認,1,公告登録,,planned,,,,,,,,
+202,csv-user-1,開発ユーザー1,2026-09-21T01:00:00Z,NEW,旭川,R8.10.11,【ダミー】ボールペンほか文具の見積依頼／内容修正後・本リストへの登録確認,2,内容修正,,planned,,,,,,,,
+203,csv-user-2,開発ユーザー2,2026-09-21T02:00:00Z,NEW,帯広,R8.10.12,【ダミー】清掃用洗剤の見積依頼／別投稿者・編集権限の確認,3,公告登録,,planned,,,,,,,,

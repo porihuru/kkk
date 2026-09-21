@@ -13,13 +13,14 @@
   var editingList = "planned";
   var selectedPdfFiles = {};
   var filenameGenerationSequences = [];
+  var resultWorkMode = false;
+  var editingResultSourceId = "";
   var PDF_ROW_COUNT = 5;
-  var requestFiles = {};
   var workflowBusy = false;
   var unsaved = false;
   var pendingSave = null;
   function mayLeave() {
-    return !workflowBusy && ((!unsaved && !Object.keys(selectedPdfFiles).length && !Object.keys(requestFiles).length) || window.confirm("未保存の変更または選択PDFがあります。出力していない内容は失われます。切り替えますか？"));
+    return !workflowBusy && ((!unsaved && !Object.keys(selectedPdfFiles).length) || window.confirm("未保存の変更または選択PDFがあります。出力していない内容は失われます。切り替えますか？"));
   }
   function runSave(tasks, done) {
     var index = 0;
@@ -32,10 +33,10 @@
           workflowBusy = false; pendingSave = null; unsaved = false;
           byId("retry-save").disabled = true; done(); return;
         }
-        tasks[index](function () { index += 1; next(); }, function () {
+        tasks[index](function () { index += 1; next(); }, function (failureMessage) {
           workflowBusy = false; pendingSave = resume;
           byId("retry-save").disabled = false;
-          byId("form-message").textContent = "未保存：保存に失敗しました。変更は保持しています。「再保存」を押してください。競合時はCSVを退避して再読込してください。";
+          byId("form-message").textContent = typeof failureMessage === "string" ? failureMessage : "未保存：保存に失敗しました。変更は保持しています。「再保存」を押してください。競合時はCSVを退避して再読込してください。";
         });
       }
       next();
@@ -150,6 +151,7 @@
   }
 
   function updatePdfLink(rowIndex) {
+    if (resultWorkMode) { return; }
     var title = pdfInput("link-text-input", rowIndex).value.trim();
     var garrison = byId("garrison-input").value;
     var sequence = (filenameGenerationSequences[rowIndex] || 0) + 1;
@@ -195,8 +197,49 @@
     for (i = 0; i < PDF_ROW_COUNT; i += 1) {
       (function (rowIndex) {
         pdfInput("link-text-input", rowIndex).oninput = function () { updatePdfLink(rowIndex); };
+        pdfInput("pdf-file-input", rowIndex).onchange = function () { if (resultWorkMode) { updateResultPdfLink(rowIndex); } };
+        byId("pdf-file-clear-" + (rowIndex + 1)).onclick = function () { clearResultPdf(rowIndex); };
       }(i));
     }
+  }
+
+  function resultPdfUrl(fileName) {
+    var root = DataService.getPublicationConfig().pdfRoot || "R8/be";
+    return String(root).replace(/^\/+|\/+$/g, "") + "/" + fileName;
+  }
+
+  function updateResultPdfLink(rowIndex) {
+    var input = pdfInput("pdf-file-input", rowIndex);
+    var file = input.files && input.files.length ? input.files[0] : null;
+    var sequence = (filenameGenerationSequences[rowIndex] || 0) + 1;
+    filenameGenerationSequences[rowIndex] = sequence;
+    if (!file) { clearResultPdf(rowIndex); return; }
+    if (file.type && file.type !== "application/pdf" && !/\.pdf$/i.test(file.name || "")) {
+      input.value = "";
+      byId("form-message").textContent = "PDFファイルを選択してください。";
+      return;
+    }
+    FilenameGenerator.generate({ title: pdfInput("link-text-input", rowIndex).value, garrison: byId("garrison-input").value, category: "NEW", date: bidDateAsDate() }, function (result) {
+      var name;
+      if (sequence !== filenameGenerationSequences[rowIndex]) { return; }
+      name = result.fileName.replace(/\.pdf$/i, "_kk.pdf");
+      pdfInput("link-url-input", rowIndex).value = resultPdfUrl(name);
+      byId("form-message").textContent = "結果PDFを選択しました。";
+    }, function () {
+      if (sequence !== filenameGenerationSequences[rowIndex]) { return; }
+      input.value = "";
+      byId("form-message").textContent = "結果PDFのファイル名を作成できません。";
+    });
+  }
+
+  function clearResultPdf(rowIndex) {
+    if (!resultWorkMode) { return; }
+    filenameGenerationSequences[rowIndex] = (filenameGenerationSequences[rowIndex] || 0) + 1;
+    pdfInput("pdf-file-input", rowIndex).value = "";
+    if (pdfInput("link-text-input", rowIndex).value) {
+      pdfInput("link-url-input", rowIndex).value = DataService.getPublicationConfig().endedUrl;
+    }
+    byId("form-message").textContent = "結果PDFを削除し、掲載終了PDFへ戻しました。";
   }
 
   function escapeHtml(value) {
@@ -252,8 +295,94 @@
     return kind === "planned" ? { announcements: plannedAnnouncements, links: plannedLinks } : { announcements: allAnnouncements, links: allLinks };
   }
 
+  function isResultWork(item) {
+    return item && item.WorkType === "RESULT";
+  }
+
+  function resultWorkBySource(sourceId, includeVirtual) {
+    var i;
+    for (i = 0; i < plannedAnnouncements.length; i += 1) {
+      if (isResultWork(plannedAnnouncements[i]) && String(plannedAnnouncements[i].SourceAnnouncementID) === String(sourceId) && (includeVirtual || !plannedAnnouncements[i]._virtualResult)) {
+        return plannedAnnouncements[i];
+      }
+    }
+    return null;
+  }
+
+  function sourceHasPublishedResult(source) {
+    var links = linksFor(source.ID, allLinks);
+    var i;
+    if (source.ResultSubmittedAt) { return true; }
+    for (i = 0; i < links.length; i += 1) {
+      if (links[i].Type === "結果") { return true; }
+    }
+    return false;
+  }
+
+  function syncVirtualResultWork() {
+    var endedUrl = DataService.getPublicationConfig().endedUrl;
+    var keptAnnouncements = [];
+    var keptLinks = [];
+    var i;
+    var j;
+    var source;
+    var sourceLinks;
+    var task;
+    for (i = 0; i < plannedAnnouncements.length; i += 1) {
+      if (!plannedAnnouncements[i]._virtualResult) { keptAnnouncements.push(plannedAnnouncements[i]); }
+    }
+    for (i = 0; i < plannedLinks.length; i += 1) {
+      if (!plannedLinks[i]._virtualResult) { keptLinks.push(plannedLinks[i]); }
+    }
+    plannedAnnouncements = keptAnnouncements;
+    plannedLinks = keptLinks;
+    for (i = 0; i < allAnnouncements.length; i += 1) {
+      source = allAnnouncements[i];
+      if (PublicationWorkflow.state(source) !== "掲載終了" || sourceHasPublishedResult(source) || resultWorkBySource(source.ID, false)) { continue; }
+      task = {
+        ID: "result-" + source.ID,
+        AuthorId: "",
+        AuthorName: "未担当",
+        Created: "",
+        Category: "結果",
+        Garrison: source.Garrison,
+        BidDate: source.BidDate,
+        Remarks: source.Remarks,
+        Sort: String(plannedAnnouncements.length + 1),
+        Status: "結果作業",
+        OperationDate: "",
+        ListKind: "planned",
+        WorkType: "RESULT",
+        SourceAnnouncementID: String(source.ID),
+        WorkflowKey: "RESULT:" + source.ID,
+        _virtualResult: true
+      };
+      plannedAnnouncements.push(task);
+      sourceLinks = linksFor(source.ID, allLinks);
+      for (j = 0; j < sourceLinks.length; j += 1) {
+        plannedLinks.push({ ID: "result-link-" + source.ID + "-" + j, KokokuID: task.ID, Text: sourceLinks[j].Text, FileName: fileNameFromUrl(endedUrl), URL: endedUrl, Type: "掲載終了", Sort: String(j + 1), _virtualResult: true });
+      }
+    }
+  }
+
+  function setResultFormMode(active) {
+    var i;
+    resultWorkMode = active;
+    byId("category-input").disabled = active;
+    byId("garrison-input").disabled = active;
+    byId("date-input").readOnly = active;
+    byId("date-picker-button").disabled = active;
+    byId("date-picker-input").disabled = active;
+    byId("status-input").disabled = active;
+    for (i = 0; i < PDF_ROW_COUNT; i += 1) {
+      pdfInput("link-text-input", i).readOnly = active;
+      byId("pdf-file-clear-" + (i + 1)).className = active ? "button button-small button-secondary result-file-clear" : "button button-small button-secondary result-file-clear hidden";
+    }
+    if (!active) { editingResultSourceId = ""; }
+  }
+
   function publicationData() {
-    return PublicationWorkflow.candidate(allAnnouncements, allLinks, plannedAnnouncements, DataService.getPublicationConfig().endedUrl);
+    return PublicationWorkflow.candidate(allAnnouncements, allLinks, DataService.getPublicationConfig().endedUrl);
   }
 
   function saveWorkflowItem(item, patch, success, error) {
@@ -270,104 +399,22 @@
     }
   }
 
-  function openPublicationRequest() {
-    if (workflowBusy || pendingSave) { return; }
-    var id = this.getAttribute("data-id");
-    var request = this.getAttribute("data-list") === "planned" ? announcementById(id, plannedAnnouncements) : null;
-    var target = announcementById(request ? request.TargetID : id, allAnnouncements);
-    if (!target || !DataService.canManageAnnouncement(request || target, "planned", adminActive)) { return; }
-    byId("publication-target-id").value = target.ID;
-    byId("publication-request-id").value = request ? request.ID : "";
-    byId("publication-request-type").value = request ? request.RequestType : "結果登録";
-    byId("publication-result-file").value = "";
-    byId("publication-target").textContent = "公告ID " + target.ID + " ／ " + target.Garrison + " ／ 入札日 " + target.BidDate;
-    byId("publication-request-message").textContent = "結果登録の場合はPDFを選択してください。元の公告PDFは保持します。";
-    setHidden(byId("publication-request-panel"), false);
-    byId("publication-request-panel").scrollIntoView();
-  }
-
-  function submitPublicationRequest(event) {
-    event.preventDefault();
-    if (workflowBusy || pendingSave) { return; }
-    var target = announcementById(byId("publication-target-id").value, allAnnouncements);
-    var old = announcementById(byId("publication-request-id").value, plannedAnnouncements);
-    if (!target || !DataService.canManageAnnouncement(old || target, "planned", adminActive)) { return; }
-    var user = DataService.getCurrentUser(), request = old ? PublicationWorkflow.copy(old) : PublicationWorkflow.copy(target);
-    var type = byId("publication-request-type").value, file = byId("publication-result-file").files[0], i;
-    for (i = 0; i < plannedAnnouncements.length; i += 1) {
-      if (PublicationWorkflow.active(plannedAnnouncements[i]) && String(plannedAnnouncements[i].TargetID) === String(target.ID) && plannedAnnouncements[i] !== old) {
-        byId("publication-request-message").textContent = "この公告には未完了の依頼があります。既存の依頼を修正してください。"; return;
-      }
-    }
-    request.ID = old ? old.ID : nextId(plannedAnnouncements);
-    request.ListKind = "planned"; request.TargetID = String(target.ID); request.RequestType = type; request.RequestStatus = type;
-    request.Status = type === "掲載終了依頼" ? "入札終了登録" : "結果登録";
-    request.VerifiedAt = ""; request.OperationDate = operationDateText();
-    if (!old) { delete request.Id; request.AuthorId = user.id; request.AuthorName = user.name; request.Created = new Date().toISOString(); request.ResultURL = ""; request.ResultName = ""; }
-    if (type === "結果登録" && file) {
-      if (!/\.pdf$/i.test(file.name)) { byId("publication-request-message").textContent = "PDFファイルを選択してください。"; return; }
-      request.ResultURL = DataService.getPublicationConfig().pdfRoot + "/result-" + new Date().getTime() + "-" + String(request.ID).replace(/[^A-Za-z0-9_-]/g, "") + ".pdf";
-      request.ResultName = file.name;
-    }
-    if (type === "結果登録" && !file && !old) { byId("publication-request-message").textContent = "結果PDFを選択してください。"; return; }
-    if (type === "掲載終了依頼") { request.ResultURL = ""; request.ResultName = ""; }
-    try { PublicationWorkflow.validate(request, allAnnouncements); } catch (error) { byId("publication-request-message").textContent = error.message; return; }
-    workflowBusy = true;
-    function failed() { workflowBusy = false; byId("publication-request-message").textContent = "保存に失敗しました。依頼は完了していません。"; }
-    function saved(result) {
-      if (!DataService.isSharePoint()) { unsaved = true; }
-      if (result && result.Id) { request.Id = result.Id; request.ID = String(result.Id); }
-      if (result && result.Created) { request.Created = result.Created; }
-      if (old) { plannedAnnouncements.splice(plannedAnnouncements.indexOf(old), 1, request); } else { plannedAnnouncements.unshift(request); }
-      if (file) { requestFiles[request.ID] = file; }
-      workflowBusy = false; filterAnnouncements();
-      setHidden(byId("publication-request-panel"), true);
-      byId("form-message").textContent = "更新依頼を登録しました。公開サイトの内容はまだ変更していません。";
-    }
-    function storeRequest() {
-      if (!DataService.isSharePoint()) { saved(); return; }
-      var payload = {}, keys = ["Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate"].concat(PublicationWorkflow.fields);
-      keys.forEach(function (key) { payload[key] = request[key] || ""; });
-      if (old) { DataService.update("announcements", old.Id || old.ID, payload, function () { saved(); }, failed); }
-      else { DataService.add("announcements", payload, saved, failed); }
-    }
-    if (file && DataService.isSharePoint()) { DataService.uploadPdf(file, request.ResultURL.split("/").pop(), storeRequest, failed); } else { storeRequest(); }
-  }
-
-  function approvePublicationRequest() {
-    if (!adminActive || workflowBusy || pendingSave) { return; }
-    var request = announcementById(this.getAttribute("data-id"), plannedAnnouncements);
-    if (!request || request.RequestStatus === "反映確認済み" || request.RequestStatus === "公開済") { return; }
-    var patch = { RequestStatus: request.RequestStatus === "公開待ち" ? request.RequestType : "公開待ち" };
-    try {
-      var proposed = PublicationWorkflow.copy(request); proposed.RequestStatus = patch.RequestStatus;
-      PublicationWorkflow.candidate(allAnnouncements, allLinks, plannedAnnouncements.map(function (item) { return item === request ? proposed : item; }), DataService.getPublicationConfig().endedUrl);
-    } catch (error) { byId("form-message").textContent = error.message; return; }
-    workflowBusy = true;
-    saveWorkflowItem(request, patch, function () { workflowBusy = false; filterAnnouncements(); }, function () { workflowBusy = false; byId("form-message").textContent = "依頼の更新に失敗しました。"; });
-  }
-
   function verifyPublication() {
     if (!adminActive || workflowBusy || pendingSave) { return; }
     var file = byId("published-check-file").files[0];
     if (!file) { byId("published-check-message").textContent = "公開サイトから取得したHTMLを選択してください。"; return; }
-    var pending = plannedAnnouncements.filter(function (r) { return r.RequestStatus === "公開済"; });
     workflowBusy = true;
     function fail(message) { workflowBusy = false; byId("published-check-message").textContent = message || "反映記録の保存に失敗しました。再読込して状態を確認してください。"; }
     HtmlImport.readFile(file, function (source) {
       var expected;
       try {
-        expected = PublicationWorkflow.candidate(allAnnouncements, allLinks, [], DataService.getPublicationConfig().endedUrl);
+        expected = publicationData();
         if (PublicationWorkflow.signature(expected, DataService.getPublicLinkUrl) !== PublicationWorkflow.signature(HtmlImport.parse(source), DataService.getPublicLinkUrl)) { fail("公開予定とHTMLが一致しません。反映済みにはしていません。"); return; }
       } catch (error) { fail(error.message); return; }
-      var index = 0;
+      var index = 0, timestamp = new Date().toISOString();
       function next() {
-        if (index === pending.length) { workflowBusy = false; filterAnnouncements(); byId("published-check-message").textContent = "公開HTMLとの一致を確認し、" + pending.length + "件を反映確認済みにしました。"; return; }
-        var request = pending[index++], original = announcementById(request.TargetID, allAnnouncements), candidate = announcementById(request.TargetID, expected.announcements);
-        var timestamp = new Date().toISOString();
-        saveWorkflowItem(original, { PublicState: candidate.PublicState, Category: candidate.Category, Status: candidate.Status, ResultURL: candidate.ResultURL || "", ResultName: candidate.ResultName || "", VerifiedAt: timestamp }, function () {
-          saveWorkflowItem(request, { RequestStatus: "反映確認済み", VerifiedAt: timestamp }, next, function () { fail(); });
-        }, function () { fail(); });
+        if (index === allAnnouncements.length) { workflowBusy = false; filterAnnouncements(); byId("published-check-message").textContent = "公開HTMLとの一致を確認しました。"; return; }
+        saveWorkflowItem(allAnnouncements[index++], { VerifiedAt: timestamp }, next, function () { fail(); });
       }
       next();
     }, function () { fail("HTMLファイルを読み込めません。"); });
@@ -403,6 +450,61 @@
     return null;
   }
 
+  function linkById(linkId, sourceLinks) {
+    var i;
+    for (i = 0; i < sourceLinks.length; i += 1) {
+      if (String(sourceLinks[i].ID) === String(linkId)) { return sourceLinks[i]; }
+    }
+    return null;
+  }
+
+  function previewPdf() {
+    var kind = this.getAttribute("data-list") || "planned";
+    var state = listState(kind);
+    var link = linkById(this.getAttribute("data-link-id"), state.links);
+    var previewType = this.getAttribute("data-preview-type") || (link && link.Type) || "";
+    var previewUrl = this.getAttribute("data-preview-url") || (link && link.URL) || "";
+    var file = link && previewType !== "掲載終了" ? selectedPdfFiles[pdfKey(kind, link.ID)] : null;
+    var url;
+    var opened;
+    if (!link) {
+      byId("form-message").textContent = "確認するPDFの情報が見つかりません。再読込してください。";
+      return;
+    }
+    if (file && global.navigator.msSaveOrOpenBlob) {
+      global.navigator.msSaveOrOpenBlob(file, link.FileName || file.name || "document.pdf");
+      byId("form-message").textContent = "選択中のPDFを開きました。";
+      return;
+    }
+    if (file) {
+      if (!global.URL || !global.URL.createObjectURL) {
+        byId("form-message").textContent = "このブラウザーでは選択中のPDFを確認できません。";
+        return;
+      }
+      url = global.URL.createObjectURL(file);
+      opened = global.open(url, "_blank");
+      if (!opened) {
+        global.URL.revokeObjectURL(url);
+        byId("form-message").textContent = "PDFを開けません。ポップアップを許可してください。";
+        return;
+      }
+      global.setTimeout(function () { global.URL.revokeObjectURL(url); }, 60000);
+    } else {
+      url = DataService.isSharePoint() && previewType !== "掲載終了" ? DataService.getPdfPreviewUrl(previewUrl, link.FileName) : DataService.getPublicLinkUrl(previewUrl);
+      if (!url) {
+        byId("form-message").textContent = "PDFの保存先を確認できません。PDFを選択するか、設定を確認してください。";
+        return;
+      }
+      opened = global.open(url, "_blank");
+      if (!opened) {
+        byId("form-message").textContent = "PDFを開けません。ポップアップを許可してください。";
+        return;
+      }
+    }
+    try { opened.opener = null; } catch (ignore) {}
+    byId("form-message").textContent = "PDFを別画面で開きました。";
+  }
+
   function compareAnnouncements(left, right) {
     var leftDate = String(left.BidDate || "");
     var rightDate = String(right.BidDate || "");
@@ -424,6 +526,7 @@
     var categoryClass;
     var upDisabled;
     var downDisabled;
+    var statusText;
 
     if (!((kind === "published" && preserveAnnouncementOrder) || (kind === "planned" && preservePlannedOrder))) {
       state.announcements.sort(compareAnnouncements);
@@ -439,36 +542,34 @@
       canOperate = DataService.canManageAnnouncement(announcements[i], kind, adminActive);
       links = linksFor(announcements[i].ID, state.links);
       if (kind === "published" && announcements[i].PublicState && announcements[i].PublicState !== "公告掲載中") {
-        try { links = PublicationWorkflow.candidate([announcements[i]], links, [], DataService.getPublicationConfig().endedUrl).links; } catch (error) { links = []; }
+        try { links = PublicationWorkflow.candidate([announcements[i]], links, DataService.getPublicationConfig().endedUrl).links; } catch (error) { links = []; }
       }
-      if (announcements[i].RequestType && announcements[i].ResultURL) { links = [{ Text: announcements[i].ResultName || "結果PDF", URL: announcements[i].ResultURL }]; }
-      if (announcements[i].RequestType === "掲載終了依頼") { links = [{ Text: "掲載終了PDF", URL: DataService.getPublicationConfig().endedUrl }]; }
       categoryClass = announcements[i].Category === "NEW" ? "category" : "category category-change";
       upDisabled = i === 0 ? " disabled" : "";
       downDisabled = i === announcements.length - 1 ? " disabled" : "";
       html.push("<tr>");
       html.push("<td class=\"id-cell\">");
-      if (adminActive) {
+      if (adminActive && !announcements[i]._virtualResult) {
         html.push("<span class=\"order-controls\"><button type=\"button\" class=\"button order-button order-up-button\" data-list=\"" + kind + "\" data-id=\"" + escapeHtml(announcements[i].ID) + "\" aria-label=\"上へ移動\"" + upDisabled + ">↑</button><button type=\"button\" class=\"button order-button order-down-button\" data-list=\"" + kind + "\" data-id=\"" + escapeHtml(announcements[i].ID) + "\" aria-label=\"下へ移動\"" + downDisabled + ">↓</button></span>");
       }
       html.push(escapeHtml(announcements[i].ID) + "</td>");
       html.push("<td class=\"actions\">");
-      if (canOperate) {
+      if (canOperate && !isResultWork(announcements[i])) {
         html.push("<button type=\"button\" class=\"button button-small edit-button\" data-list=\"" + kind + "\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">修正</button> <button type=\"button\" class=\"button button-small button-danger delete-button\" data-list=\"" + kind + "\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">削除</button>");
       }
-      if (kind === "planned" && adminActive && !announcements[i].RequestType) {
+      if (kind === "planned" && isResultWork(announcements[i])) {
+        html.push("<button type=\"button\" class=\"button button-small result-work-button\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">結果作業</button>");
+      }
+      if (kind === "planned" && adminActive && !announcements[i]._virtualResult) {
         html.push(" <button type=\"button\" class=\"button button-small move-button publish-button\" data-list=\"planned\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">本リストへ登録</button>");
-      }
-      if (kind === "published" && DataService.canManageAnnouncement(announcements[i], "planned", adminActive)) {
-        html.push('<button type="button" class="button button-small request-button" data-id="' + escapeHtml(announcements[i].ID) + '">更新依頼</button>');
-      }
-      if (kind === "planned" && announcements[i].RequestType && adminActive && announcements[i].RequestStatus !== "反映確認済み" && announcements[i].RequestStatus !== "公開済") {
-        html.push('<button type="button" class="button button-small approve-request-button" data-id="' + escapeHtml(announcements[i].ID) + '">' + (announcements[i].RequestStatus === "公開待ち" ? "公開待ちを解除" : "公開待ちにする") + '</button>');
       }
       if (kind === "published" && adminActive && !announcements[i].PublicState) {
         html.push(" <button type=\"button\" class=\"button button-small move-button return-button\" data-list=\"published\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">予定へ差し戻し</button>");
       }
-      if (!canOperate && !adminActive && !(kind === "published" && DataService.canManageAnnouncement(announcements[i], "planned", adminActive))) {
+      if (kind === "published" && adminActive && PublicationWorkflow.state(announcements[i]) !== "掲載終了") {
+        html.push(" <button type=\"button\" class=\"button button-small button-secondary end-publication-button\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">掲載終了</button>");
+      }
+      if (!canOperate && !adminActive && !isResultWork(announcements[i])) {
         html.push("—");
       }
       html.push("</td>");
@@ -477,15 +578,16 @@
         html.push("<td class=\"author-cell\">" + escapeHtml(announcements[i].AuthorName || (announcements[i].AuthorId ? "ID: " + announcements[i].AuthorId : "不明")) + "</td>");
         html.push("<td class=\"operation-date-cell\">" + escapeHtml(postingDateText(announcements[i].Created)) + "</td>");
       }
-      html.push('<td class="status-cell">' + escapeHtml(announcements[i].RequestStatus || (kind === "published" ? (announcements[i].Status === "公開待ち" ? "公開待ち" : PublicationWorkflow.state(announcements[i])) : announcements[i].Status)));
-      if (announcements[i].RequestType) { html.push('<br><small>' + escapeHtml(announcements[i].RequestType) + ' ／ 元公告 ' + escapeHtml(announcements[i].TargetID) + '</small>'); }
+      statusText = kind === "published" ? (announcements[i].Status === "公開待ち" && PublicationWorkflow.state(announcements[i]) !== "掲載終了" ? "公開待ち" : PublicationWorkflow.state(announcements[i])) : announcements[i].Status;
+      html.push('<td class="status-cell">' + escapeHtml(statusText));
+      if (kind === "published" && announcements[i].Status === "公開待ち" && PublicationWorkflow.state(announcements[i]) === "掲載終了") { html.push('<br><small>ZIP未作成</small>'); }
       if (kind === "published" && PublicationWorkflow.due(announcements[i])) { html.push('<br><strong class="due-notice">掲載終了の確認対象</strong>'); }
       html.push('</td>');
       html.push("<td><span class=\"" + categoryClass + "\">" + escapeHtml(announcements[i].Category) + "</span></td>");
       html.push("<td class=\"garrison-cell\">" + escapeHtml(announcements[i].Garrison) + "</td>");
       html.push("<td class=\"subject-cell\"><ul class=\"link-list\">");
       for (j = 0; j < links.length; j += 1) {
-        html.push("<li><a href=\"" + escapeHtml(DataService.getPublicLinkUrl(links[j].URL)) + "\" target=\"_blank\" rel=\"noopener noreferrer\">" + escapeHtml(links[j].Text) + "</a></li>");
+        html.push("<li><a href=\"" + escapeHtml(DataService.getPublicLinkUrl(links[j].URL)) + "\" target=\"_blank\" rel=\"noopener noreferrer\">" + escapeHtml(links[j].Text) + "</a> <button type=\"button\" class=\"button button-small button-secondary pdf-preview-button\" data-list=\"" + kind + "\" data-link-id=\"" + escapeHtml(links[j].ID) + "\" data-preview-url=\"" + escapeHtml(links[j].URL) + "\" data-preview-type=\"" + escapeHtml(links[j].Type) + "\" aria-label=\"" + escapeHtml(links[j].Text + "のPDFを確認") + "\">PDF確認</button></li>");
       }
       if (!links.length) {
         html.push("<li>（PDF未登録）</li>");
@@ -504,15 +606,15 @@
   }
 
   function bindRowActions() {
-    var requestButtons = document.getElementsByClassName("request-button"), approveButtons = document.getElementsByClassName("approve-request-button"), n;
-    for (n = 0; n < requestButtons.length; n += 1) { requestButtons[n].onclick = openPublicationRequest; }
-    for (n = 0; n < approveButtons.length; n += 1) { approveButtons[n].onclick = approvePublicationRequest; }
     var editButtons = document.getElementsByClassName("edit-button");
     var deleteButtons = document.getElementsByClassName("delete-button");
     var publishButtons = document.getElementsByClassName("publish-button");
     var returnButtons = document.getElementsByClassName("return-button");
     var orderUpButtons = document.getElementsByClassName("order-up-button");
     var orderDownButtons = document.getElementsByClassName("order-down-button");
+    var pdfPreviewButtons = document.getElementsByClassName("pdf-preview-button");
+    var endPublicationButtons = document.getElementsByClassName("end-publication-button");
+    var resultWorkButtons = document.getElementsByClassName("result-work-button");
     var i;
     for (i = 0; i < editButtons.length; i += 1) {
       editButtons[i].onclick = beginEdit;
@@ -532,6 +634,15 @@
     for (i = 0; i < orderDownButtons.length; i += 1) {
       orderDownButtons[i].onclick = moveAnnouncementOrder;
     }
+    for (i = 0; i < pdfPreviewButtons.length; i += 1) {
+      pdfPreviewButtons[i].onclick = previewPdf;
+    }
+    for (i = 0; i < endPublicationButtons.length; i += 1) {
+      endPublicationButtons[i].onclick = endPublication;
+    }
+    for (i = 0; i < resultWorkButtons.length; i += 1) {
+      resultWorkButtons[i].onclick = beginResultWork;
+    }
   }
 
   function beginEdit() {
@@ -546,7 +657,6 @@
     if (!announcement) {
       return;
     }
-    if (announcement.RequestType) { openPublicationRequest.call(this); return; }
     editingList = kind;
     links = linksFor(announcement.ID, state.links);
     byId("announcement-id").value = announcement.ID;
@@ -569,8 +679,50 @@
     }
   }
 
+  function beginResultWork() {
+    if (workflowBusy || pendingSave) { return; }
+    var task = announcementById(this.getAttribute("data-id"), plannedAnnouncements);
+    var source;
+    var links;
+    var rowIndex;
+    if (!task || !isResultWork(task) || !DataService.getCurrentUser()) { return; }
+    if (!task._virtualResult && !DataService.canManageAnnouncement(task, "planned", adminActive)) {
+      byId("form-message").textContent = "この結果は別のユーザーが保存済みです。修正は結果投稿者または管理者が行ってください。";
+      return;
+    }
+    source = announcementById(task.SourceAnnouncementID, allAnnouncements);
+    if (!source) {
+      byId("form-message").textContent = "コピー元の公告が見つかりません。再読込してください。";
+      return;
+    }
+    links = linksFor(task.ID, plannedLinks);
+    editingList = "planned";
+    editingResultSourceId = String(source.ID);
+    setResultFormMode(true);
+    byId("announcement-id").value = task.ID;
+    byId("category-input").value = "結果";
+    byId("garrison-input").value = source.Garrison;
+    byId("date-input").value = source.BidDate;
+    syncDatePicker();
+    byId("status-input").value = "結果登録";
+    byId("remarks-input").value = task.Remarks || source.Remarks || "";
+    for (rowIndex = 0; rowIndex < PDF_ROW_COUNT; rowIndex += 1) {
+      pdfInput("link-text-input", rowIndex).value = links.length > rowIndex ? links[rowIndex].Text : "";
+      pdfInput("link-url-input", rowIndex).value = links.length > rowIndex ? links[rowIndex].URL : "";
+      pdfInput("pdf-file-input", rowIndex).disabled = rowIndex >= links.length;
+      byId("pdf-file-clear-" + (rowIndex + 1)).className = rowIndex < links.length ? "button button-small button-secondary result-file-clear" : "button button-small button-secondary result-file-clear hidden";
+    }
+    byId("editor-title").innerHTML = "結果作業";
+    byId("cancel-edit").className = "button button-secondary";
+    byId("form-message").innerHTML = "結果PDFを選択して保存してください。";
+    if (byId("announcement-form").scrollIntoView) { byId("announcement-form").scrollIntoView(); }
+  }
+
   function clearForm() {
+    setResultFormMode(false);
     byId("announcement-form").reset();
+    var rowIndex;
+    for (rowIndex = 0; rowIndex < PDF_ROW_COUNT; rowIndex += 1) { pdfInput("pdf-file-input", rowIndex).disabled = false; }
     setDefaultBidDate();
     byId("announcement-id").value = "";
     updatePdfLinks();
@@ -616,7 +768,11 @@
           announcement.Id = saved.Id || saved.ID; announcement.ID = String(announcement.Id);
           if (saved.Created) { announcement.Created = saved.Created; }
           links.forEach(function (link) { link.KokokuID = announcement.ID; }); ok();
-        }, fail);
+        }, function (request) {
+          if (isResultWork(announcement) && request && /duplicate|unique|一意|重複/i.test(String(request.responseText || ""))) {
+            fail("未保存：ほかのユーザーが結果を登録しました。再読込してください。");
+          } else { fail(request); }
+        });
       } else { DataService.update("announcements", announcement.Id || announcement.ID, payload, ok, fail); }
     });
     links.forEach(function (link) {
@@ -627,7 +783,103 @@
       });
     });
     (removedLinks || []).forEach(function (link) { tasks.push(function (ok, fail) { DataService.remove("links", link.Id || link.ID, ok, fail); }); });
-    runSave(tasks, function () { filterAnnouncements(); byId("form-message").textContent = "公告・リンク・PDFをSharePointへ保存しました。"; });
+    runSave(tasks, function () { filterAnnouncements(); byId("form-message").textContent = isResultWork(announcement) ? "結果・リンク・PDFをSharePointへ保存しました。" : "公告・リンク・PDFをSharePointへ保存しました。"; });
+  }
+
+  function saveResultWork() {
+    var task = announcementById(byId("announcement-id").value, plannedAnnouncements);
+    var source = announcementById(editingResultSourceId, allAnnouncements);
+    var links;
+    var link;
+    var file;
+    var selectedFiles = {};
+    var currentUser = DataService.getCurrentUser();
+    var now = new Date().toISOString();
+    var i;
+    var isNew;
+    if (!task || !source || !currentUser) {
+      byId("form-message").textContent = "結果作業の対象を確認できません。再読込してください。";
+      return false;
+    }
+    if (!task._virtualResult && !DataService.canManageAnnouncement(task, "planned", adminActive)) {
+      byId("form-message").textContent = "この結果は別のユーザーが保存済みです。";
+      return false;
+    }
+    links = linksFor(task.ID, plannedLinks);
+    for (i = 0; i < links.length; i += 1) {
+      file = pdfInput("pdf-file-input", i).files && pdfInput("pdf-file-input", i).files.length ? pdfInput("pdf-file-input", i).files[0] : null;
+      if (!/_kk\.pdf$/i.test(pdfInput("link-url-input", i).value) && !selectedPdfFiles[pdfKey("planned", links[i].ID)]) {
+        byId("form-message").textContent = "結果PDFを選択してください。";
+        return false;
+      }
+      if (file) { selectedFiles[pdfKey("planned", links[i].ID)] = file; }
+    }
+    isNew = !!task._virtualResult;
+    if (isNew) {
+      if (resultWorkBySource(source.ID, false)) {
+        byId("form-message").textContent = "ほかのユーザーが結果を登録しました。再読込してください。";
+        return false;
+      }
+      plannedAnnouncements.splice(plannedAnnouncements.indexOf(task), 1);
+      links.forEach(function (item) { plannedLinks.splice(plannedLinks.indexOf(item), 1); });
+      task = {
+        ID: nextId(plannedAnnouncements),
+        AuthorId: String(currentUser.id),
+        AuthorName: currentUser.name,
+        Created: now,
+        Category: "結果",
+        Garrison: source.Garrison,
+        BidDate: source.BidDate,
+        Remarks: byId("remarks-input").value,
+        Sort: "1",
+        Status: "結果登録",
+        OperationDate: operationDateText(),
+        ListKind: "planned",
+        WorkType: "RESULT",
+        SourceAnnouncementID: String(source.ID),
+        WorkflowKey: "RESULT:" + source.ID,
+        ResultSubmittedById: String(currentUser.id),
+        ResultSubmittedByName: currentUser.name,
+        ResultSubmittedAt: now
+      };
+      plannedAnnouncements.unshift(task);
+      links = links.map(function (oldLink, index) {
+        var newLink = { ID: nextLinkId(plannedLinks), KokokuID: task.ID, Text: oldLink.Text, FileName: fileNameFromUrl(pdfInput("link-url-input", index).value), URL: pdfInput("link-url-input", index).value, Type: "結果", Sort: String(index + 1) };
+        file = pdfInput("pdf-file-input", index).files[0];
+        plannedLinks.push(newLink);
+        if (file) {
+          selectedFiles[pdfKey("planned", newLink.ID)] = file;
+          selectedPdfFiles[pdfKey("planned", newLink.ID)] = file;
+        }
+        return newLink;
+      });
+    } else {
+      task.Category = "結果";
+      task.Garrison = source.Garrison;
+      task.BidDate = source.BidDate;
+      task.Remarks = byId("remarks-input").value;
+      task.Status = "結果登録";
+      task.OperationDate = operationDateText();
+      task.ResultSubmittedById = String(currentUser.id);
+      task.ResultSubmittedByName = currentUser.name;
+      task.ResultSubmittedAt = now;
+      for (i = 0; i < links.length; i += 1) {
+        links[i].URL = pdfInput("link-url-input", i).value;
+        links[i].FileName = fileNameFromUrl(links[i].URL);
+        links[i].Type = "結果";
+        file = pdfInput("pdf-file-input", i).files && pdfInput("pdf-file-input", i).files.length ? pdfInput("pdf-file-input", i).files[0] : null;
+        if (file) {
+          selectedFiles[pdfKey("planned", links[i].ID)] = file;
+          selectedPdfFiles[pdfKey("planned", links[i].ID)] = file;
+        }
+      }
+    }
+    preservePlannedOrder = true;
+    clearForm();
+    filterAnnouncements();
+    byId("form-message").textContent = DataService.isSharePoint() ? "結果をSharePointへ保存しています..." : "結果を公告予定リストへ保存しました。CSVも出力してください。";
+    persistAnnouncement("planned", task, links, isNew, selectedFiles, []);
+    return false;
   }
 
   function saveAnnouncement(event) {
@@ -647,9 +899,11 @@
     var link;
     var i;
     var isNew = !announcement;
+    var requestedStatus;
     if (event) {
       event.preventDefault();
     }
+    if (resultWorkMode) { return saveResultWork(); }
     if (!DataService.getCurrentUser() || (id && (!announcement || !DataService.canManageAnnouncement(announcement, targetKind, adminActive)))) {
       byId("form-message").innerHTML = "この投稿を修正する権限がありません。";
       return false;
@@ -660,10 +914,6 @@
     }
     if (!isAllowed(byId("garrison-input").value, ALLOWED_GARRISONS)) {
       byId("form-message").innerHTML = "駐屯地は一覧から選択してください。";
-      return false;
-    }
-    if (byId("status-input").value === "結果登録" || byId("status-input").value === "入札終了登録") {
-      byId("form-message").textContent = "公告リストの「掲載終了・結果登録」から元の公告を選んで依頼してください。";
       return false;
     }
     if (!isAllowed(byId("status-input").value, adminActive ? ALLOWED_STATUSES : REGISTRANT_STATUSES)) {
@@ -698,8 +948,13 @@
     announcement.Category = byId("category-input").value;
     announcement.Garrison = byId("garrison-input").value;
     announcement.BidDate = byId("date-input").value;
-    announcement.Status = byId("status-input").value;
-    if (targetKind === "published") { announcement.Status = "公開待ち"; }
+    requestedStatus = byId("status-input").value;
+    announcement.Status = requestedStatus;
+    if (targetKind === "published") {
+      announcement.Status = "公開待ち";
+      announcement.PublicState = requestedStatus === "入札終了登録" ? "掲載終了" :
+        (requestedStatus === "結果登録" || announcement.Category === "結果" ? "結果掲載中" : "公告掲載中");
+    }
     announcement.Remarks = byId("remarks-input").value;
     announcement.OperationDate = operationDateText();
     announcement.ListKind = targetKind;
@@ -802,12 +1057,113 @@
     runSave(tasks, deleted);
   }
 
+  function endPublication() {
+    if (workflowBusy || pendingSave) { return; }
+    var item = announcementById(this.getAttribute("data-id"), allAnnouncements);
+    var patch = { PublicState: "掲載終了", Category: "", Status: "公開待ち", OperationDate: operationDateText() };
+    var key;
+    if (!adminActive || !item || PublicationWorkflow.state(item) === "掲載終了") { return; }
+    function ended() {
+      for (key in patch) { if (patch.hasOwnProperty(key)) { item[key] = patch[key]; } }
+      unsaved = !DataService.isSharePoint();
+      filterAnnouncements();
+      byId("form-message").textContent = "掲載終了に変更しました。リンクは設定済みの掲載終了PDFです。ZIP作成後に公開済みになります。" + (DataService.isSharePoint() ? "" : " 状態を残す場合はCSVも出力してください。");
+    }
+    if (DataService.isSharePoint()) {
+      runSave([function (ok, fail) { DataService.update("announcements", item.Id || item.ID, patch, ok, fail); }], ended);
+    } else { ended(); }
+  }
+
+  function publishResultWork(task) {
+    var source = announcementById(task.SourceAnnouncementID, allAnnouncements);
+    var resultLinks = linksFor(task.ID, plannedLinks);
+    var sourceLinks;
+    var finalLinks = [];
+    var newLinks = [];
+    var removedLinks = [];
+    var patch;
+    var tasks = [];
+    var firstNewId;
+    var i;
+    if (!adminActive || task._virtualResult || !source) {
+      byId("form-message").textContent = "保存済みの結果またはコピー元公告を確認できません。";
+      return;
+    }
+    if (!resultLinks.length || resultLinks.some(function (link) { return !/_kk\.pdf$/i.test(link.URL || ""); })) {
+      byId("form-message").textContent = "結果PDFが未登録です。結果作業を完了してから本リストへ登録してください。";
+      return;
+    }
+    sourceLinks = linksFor(source.ID, allLinks);
+    firstNewId = parseInt(nextLinkId(allLinks), 10) || 1;
+    for (i = 0; i < resultLinks.length; i += 1) {
+      var target = sourceLinks[i];
+      if (!target) {
+        target = { ID: String(firstNewId + newLinks.length), KokokuID: String(source.ID) };
+        newLinks.push(target);
+      }
+      target.Text = resultLinks[i].Text;
+      target.FileName = resultLinks[i].FileName || fileNameFromUrl(resultLinks[i].URL);
+      target.URL = resultLinks[i].URL;
+      target.Type = "結果";
+      target.Sort = String(i + 1);
+      finalLinks.push(target);
+    }
+    removedLinks = sourceLinks.slice(resultLinks.length);
+    patch = {
+      Category: "結果",
+      Garrison: task.Garrison,
+      BidDate: task.BidDate,
+      Remarks: task.Remarks,
+      Status: "公開待ち",
+      PublicState: "結果掲載中",
+      OperationDate: operationDateText(),
+      ResultSubmittedById: task.ResultSubmittedById,
+      ResultSubmittedByName: task.ResultSubmittedByName,
+      ResultSubmittedAt: task.ResultSubmittedAt
+    };
+    if (DataService.isSharePoint()) {
+      finalLinks.forEach(function (link) {
+        tasks.push(function (ok, fail) {
+          var data = { KokokuID: String(source.Id || source.ID), Text: link.Text, FileName: link.FileName, URL: link.URL, Type: "結果", Sort: link.Sort };
+          if (link.Id) { DataService.update("links", link.Id, data, ok, fail); }
+          else { DataService.add("links", data, function (saved) { link.Id = saved.Id || saved.ID; link.ID = String(link.Id); ok(); }, fail); }
+        });
+      });
+      removedLinks.forEach(function (link) { tasks.push(function (ok, fail) { DataService.remove("links", link.Id || link.ID, ok, fail); }); });
+      tasks.push(function (ok, fail) { DataService.update("announcements", source.Id || source.ID, patch, ok, fail); });
+      resultLinks.forEach(function (link) { tasks.push(function (ok, fail) { DataService.remove("links", link.Id || link.ID, ok, fail); }); });
+      tasks.push(function (ok, fail) { DataService.remove("announcements", task.Id || task.ID, ok, fail); });
+    }
+    function applied() {
+      var file;
+      Object.keys(patch).forEach(function (key) { source[key] = patch[key]; });
+      removedLinks.forEach(function (link) { if (allLinks.indexOf(link) >= 0) { allLinks.splice(allLinks.indexOf(link), 1); } });
+      newLinks.forEach(function (link) { if (allLinks.indexOf(link) < 0) { allLinks.push(link); } });
+      for (i = 0; i < resultLinks.length; i += 1) {
+        file = selectedPdfFiles[pdfKey("planned", resultLinks[i].ID)];
+        delete selectedPdfFiles[pdfKey("planned", resultLinks[i].ID)];
+        if (file) { selectedPdfFiles[pdfKey("published", finalLinks[i].ID)] = file; }
+        if (plannedLinks.indexOf(resultLinks[i]) >= 0) { plannedLinks.splice(plannedLinks.indexOf(resultLinks[i]), 1); }
+      }
+      if (plannedAnnouncements.indexOf(task) >= 0) { plannedAnnouncements.splice(plannedAnnouncements.indexOf(task), 1); }
+      unsaved = !DataService.isSharePoint();
+      clearForm();
+      filterAnnouncements();
+      byId("form-message").textContent = "結果を元の公告へ登録しました。ZIP作成までは公開待ちです。" + (DataService.isSharePoint() ? "" : " 状態を残す場合はCSVも出力してください。");
+    }
+    if (DataService.isSharePoint()) { runSave(tasks, applied); }
+    else { applied(); }
+  }
+
   function moveAnnouncement() {
     if (workflowBusy || pendingSave) { return; }
     var fromKind = this.getAttribute("data-list") || "planned", toKind = fromKind === "planned" ? "published" : "planned";
     var from = listState(fromKind), to = listState(toKind), item = announcementById(this.getAttribute("data-id"), from.announcements);
-    if (!adminActive || !item || item.RequestType) { return; }
+    if (!adminActive || !item) { return; }
+    if (fromKind === "planned" && isResultWork(item)) { publishResultWork(item); return; }
     var patch = { ListKind: toKind, Status: toKind === "published" ? "公開待ち" : "内容修正", OperationDate: operationDateText() };
+    if (toKind === "published" && item.Status === "入札終了登録") { patch.PublicState = "掲載終了"; }
+    if (toKind === "published" && (item.Status === "結果登録" || item.Category === "結果")) { patch.PublicState = "結果掲載中"; }
     patch.Sort = String(to.announcements.reduce(function (minimum, row) { return Math.min(minimum, Number(row.Sort || 0)); }, 0) - 1);
     function moved() {
       var oldId = item.ID, movedLinks = linksFor(oldId, from.links);
@@ -865,14 +1221,16 @@
       preservePlannedOrder = true;
     }
     unsaved = true;
-    state.announcements.forEach(function (item, position) { item.Sort = String(position + 1); });
+    var persistedAnnouncements = state.announcements.filter(function (item) { return !item._virtualResult; });
+    persistedAnnouncements.forEach(function (item, position) { item.Sort = String(position + 1); });
     filterAnnouncements();
     if (DataService.isSharePoint()) {
-      runSave(state.announcements.map(function (item) { return function (ok, fail) { DataService.update("announcements", item.Id || item.ID, { Sort: item.Sort }, ok, fail); }; }), function () { byId("form-message").textContent = "並び順を保存しました。"; });
+      runSave(persistedAnnouncements.map(function (item) { return function (ok, fail) { DataService.update("announcements", item.Id || item.ID, { Sort: item.Sort }, ok, fail); }; }), function () { byId("form-message").textContent = "並び順を保存しました。"; });
     }
   }
 
   function filterAnnouncements() {
+    syncVirtualResultWork();
     var keyword = byId("search-input").value.toLowerCase();
     function filteredItems(kind) {
       var state = listState(kind);
@@ -928,8 +1286,7 @@
 
   function loadData() {
     if (workflowBusy || pendingSave) { return; }
-    requestFiles = {}; selectedPdfFiles = {}; unsaved = false; pendingSave = null;
-    setHidden(byId("publication-request-panel"), true);
+    selectedPdfFiles = {}; unsaved = false; pendingSave = null;
     deactivateAdmin();
     byId("database-apply").disabled = true;
     byId("data-mode-apply").disabled = true;
@@ -1059,7 +1416,7 @@
   }
 
   function exportPlannedAnnouncements() {
-    downloadCsv(DataService.getCsvFileName("announcements"), CsvData.toCsv(plannedAnnouncements, ["ID", "AuthorId", "AuthorName", "Created", "Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate"].concat(PublicationWorkflow.fields)));
+    downloadCsv(DataService.getCsvFileName("announcements"), CsvData.toCsv(plannedAnnouncements.filter(function (item) { return !item._virtualResult; }), ["ID", "AuthorId", "AuthorName", "Created", "Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate"].concat(PublicationWorkflow.fields)));
     byId("form-message").innerHTML = "公告予定CSVを出力しました。";
   }
 
@@ -1069,7 +1426,7 @@
   }
 
   function exportPlannedLinks() {
-    downloadCsv(DataService.getCsvFileName("links"), CsvData.toCsv(plannedLinks, ["ID", "KokokuID", "Text", "FileName", "URL", "Type", "Sort"]));
+    downloadCsv(DataService.getCsvFileName("links"), CsvData.toCsv(plannedLinks.filter(function (item) { return !item._virtualResult; }), ["ID", "KokokuID", "Text", "FileName", "URL", "Type", "Sort"]));
     byId("form-message").innerHTML = "公告予定リンクCSVを出力しました。";
   }
 
@@ -1109,44 +1466,61 @@
 
   function exportZip(fullData) {
     if (workflowBusy || pendingSave) { return; }
-    if (plannedAnnouncements.some(function (request) { return request.RequestStatus === "公開待ち" && request.ResultURL && !requestFiles[request.ID]; })) {
-      byId("form-message").textContent = "公開待ちの結果PDFファイルが手元にありません。公開待ちを解除し、依頼の修正でPDFを選び直してください。";
-      return;
-    }
-    var data = publicationData();
+    byId("zip-message").textContent = "ZIPを作成しています...";
+    var data;
+    try { data = publicationData(); }
+    catch (error) { byId("zip-message").textContent = "ZIPを作成できません。" + error.message; return; }
     var htmlPath = DataService.getPublicHtmlPath();
     var zipName = DataService.getPublicHtmlFileName().replace(/\.html$/i, "") + (fullData ? "_full.zip" : "_update.zip");
-    var files = [{ name: htmlPath, content: HtmlExport.create(data.announcements, data.links, allSettings) }];
-    plannedAnnouncements.forEach(function (request) { if (request.RequestStatus === "公開待ち" && request.ResultURL && requestFiles[request.ID]) { files.push({ name: "nafin/" + request.ResultURL, file: requestFiles[request.ID] }); } });
+    var html;
+    try { html = HtmlExport.create(data.announcements, data.links, allSettings); }
+    catch (error) { byId("zip-message").textContent = "ZIPを作成できません。" + error.message; return; }
+    var files = [{ name: htmlPath, content: html }];
     var i;
     var link;
     var file;
     var fileName;
     var zipPath;
+    var pendingPdfReads = 0;
+    var pdfReadFailed = false;
+    function addPdf(link, file) {
+      fileName = link.FileName || fileNameFromUrl(link.URL) || file.name;
+      zipPath = link.URL ? (link.URL.indexOf("nafin/") === 0 ? link.URL : "nafin/" + link.URL) : "nafin/R8/be/" + fileName;
+      files.push({ name: zipPath.replace(/\\/g, "/"), file: file });
+    }
+    function createZip() {
+      if (pdfReadFailed || pendingPdfReads) { return; }
+      ZipExport.create(files, function (blob) {
+        try { downloadBlob(zipName, blob); } catch (error) { workflowBusy = false; byId("zip-message").textContent = "ZIPのダウンロードに失敗しました。公開状態は変更していません。"; return; }
+        var tasks = [];
+        data.announcements.forEach(function (candidate) {
+          var item = announcementById(candidate.ID, allAnnouncements);
+          var patch = { Status: candidate.Status, PublicState: PublicationWorkflow.state(candidate), Category: candidate.Category };
+          if (Object.keys(patch).some(function (key) { return String(item[key] || "") !== String(patch[key]); })) {
+            tasks.push(function (ok, fail) { saveWorkflowItem(item, patch, ok, fail); });
+          }
+        });
+        runSave(tasks, function () { unsaved = !DataService.isSharePoint(); filterAnnouncements(); byId("zip-message").textContent = zipName + "を出力し、対象を公開済みにしました。" + (DataService.isSharePoint() ? "" : "状態を残す場合はCSVも出力してください。"); });
+      }, function () { workflowBusy = false; byId("zip-message").textContent = "PDFの読込に失敗しました。ZIPは作成していません。"; });
+    }
+    workflowBusy = true;
     for (i = 0; i < allLinks.length; i += 1) {
       link = allLinks[i];
       file = selectedPdfFiles[pdfKey("published", link.ID)];
       if (file) {
-        fileName = link.FileName || fileNameFromUrl(link.URL) || file.name;
-        zipPath = link.URL ? (link.URL.indexOf("nafin/") === 0 ? link.URL : "nafin/" + link.URL) : "nafin/R8/be/" + fileName;
-        files.push({ name: zipPath.replace(/\\/g, "/"), file: file });
+        addPdf(link, file);
+      } else if (DataService.isSharePoint() && link.Type === "結果") {
+        pendingPdfReads += 1;
+        (function (storedLink) {
+          DataService.readPdf(storedLink, function (blob) { addPdf(storedLink, blob); pendingPdfReads -= 1; createZip(); }, function () {
+            if (pdfReadFailed) { return; }
+            pendingPdfReads -= 1; pdfReadFailed = true; workflowBusy = false;
+            byId("zip-message").textContent = "SharePointの結果PDFを読み込めません。ZIPは作成していません。";
+          });
+        }(link));
       }
     }
-    workflowBusy = true;
-    var included = plannedAnnouncements.filter(function (request) { return request.RequestStatus === "公開待ち"; });
-    ZipExport.create(files, function (blob) {
-      try { downloadBlob(zipName, blob); } catch (error) { workflowBusy = false; byId("form-message").textContent = "ZIP出力に失敗しました。公開状態は変更していません。"; return; }
-      var tasks = [];
-      data.announcements.forEach(function (candidate) {
-        var item = announcementById(candidate.ID, allAnnouncements);
-        var patch = { Status: candidate.Status, PublicState: PublicationWorkflow.state(candidate), Category: candidate.Category, ResultURL: candidate.ResultURL || "", ResultName: candidate.ResultName || "" };
-        if (Object.keys(patch).some(function (key) { return String(item[key] || "") !== String(patch[key]); })) {
-          tasks.push(function (ok, fail) { saveWorkflowItem(item, patch, ok, fail); });
-        }
-      });
-      included.forEach(function (request) { tasks.push(function (ok, fail) { saveWorkflowItem(request, { RequestStatus: "公開済" }, ok, fail); }); });
-      runSave(tasks, function () { unsaved = !DataService.isSharePoint(); filterAnnouncements(); byId("form-message").textContent = "ZIPを出力し、対象を公開済みにしました。" + (DataService.isSharePoint() ? "" : "CSVも出力してください。"); });
-    }, function () { workflowBusy = false; byId("form-message").textContent = "PDF読込に失敗しました。ZIPは未作成で、公開状態は変更していません。"; });
+    createZip();
   }
 
   function toggleDateSort() {
@@ -1170,9 +1544,6 @@
     }
     imported.forEach(function (item) { item.ListKind = "published"; item.PublicState = item.Category === "結果" ? "結果掲載中" : "公告掲載中"; });
     if (!DataService.isSharePoint()) { applied(); return; }
-    if (plannedAnnouncements.some(function (request) { return request.TargetID; })) {
-      byId("import-message").textContent = "元公告を参照する依頼があるため、HTMLによる一括置換はできません。元公告IDの対応を維持して移行する必要があります。"; return;
-    }
     imported.forEach(function (item) {
       var childLinks = newLinks.filter(function (link) { return String(link.KokokuID) === String(item.ID); });
       tasks.push(function (ok, fail) {
@@ -1287,7 +1658,7 @@
     byId("form-message").parentNode.appendChild(retry);
     retry.onclick = function () { if (pendingSave && !workflowBusy) { pendingSave(); } };
     global.onbeforeunload = function (event) {
-      if (unsaved || workflowBusy || Object.keys(selectedPdfFiles).length || Object.keys(requestFiles).length) {
+      if (unsaved || workflowBusy || Object.keys(selectedPdfFiles).length) {
         event = event || global.event;
         var message = "未保存の変更または選択PDFがあります。";
         if (event) { event.returnValue = message; }
@@ -1321,8 +1692,6 @@
     byId("export-update-zip").onclick = function () { exportZip(false); };
     byId("export-full-zip").onclick = function () { exportZip(true); };
     byId("preview-page").onclick = previewPage;
-    byId("publication-request-form").onsubmit = submitPublicationRequest;
-    byId("publication-request-cancel").onclick = function () { setHidden(byId("publication-request-panel"), true); };
     byId("published-check").onclick = verifyPublication;
     byId("import-source").onclick = importSource;
     byId("import-file").onclick = importFile;
