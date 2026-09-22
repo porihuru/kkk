@@ -4,9 +4,10 @@ DATA_MODE=CSV
 CSV_USER_ID=csv-user-1
 CSV_USER_NAME=開発ユーザー1
 DEFAULT_DATABASE=KOKOKU
+# 年度を判定できない場合だけ使う予備値。通常は日本時間のカレンダーから自動決定する。
 ACTIVE_FISCAL_YEAR=R8
 WEB_ROOT=AUTO
-# 以下のパス内のR8は年度テンプレート。管理者が選択した公開年度へ置換する。
+# 以下のパス内のR8は年度テンプレート。上部メニューで選択した作業年度へ置換する。
 # 正本の公開サイト。WEB_ROOTはSharePoint接続用のため別に管理する。
 PUBLIC_SITE_URL=https://www.mod.go.jp/gsdf/nae/fin/
 SETTINGS_LIST=kokoku_settings

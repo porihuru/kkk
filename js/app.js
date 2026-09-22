@@ -6,7 +6,7 @@
   var allAnnouncements = [];
   var allLinks = [];
   var allSettings = [];
-  var activeFiscalYear = "R8";
+  var activeFiscalYear = calendarFiscalYear();
   var deletedAnnouncements = [];
   var dateSortDescending = false;
   var preserveAnnouncementOrder = false;
@@ -19,6 +19,7 @@
   var PDF_ROW_COUNT = 5;
   var workflowBusy = false;
   var unsaved = false;
+  var formDirty = false;
   var pendingSave = null;
   function mayLeave() {
     return !workflowBusy && ((!unsaved && !Object.keys(selectedPdfFiles).length) || window.confirm("未保存の変更または選択PDFがあります。出力していない内容は失われます。切り替えますか？"));
@@ -72,29 +73,30 @@
     return null;
   }
 
-  function fiscalYearNumber(value) {
-    var match = /^R([1-9][0-9]*)$/.exec(String(value || ""));
-    return match ? Number(match[1]) : 0;
+  function calendarFiscalYear(value) {
+    var source = value && typeof value.getTime === "function" ? new Date(value.getTime()) : new Date();
+    var japan = new Date(source.getTime() + 9 * 60 * 60 * 1000);
+    var reiwaYear = japan.getUTCFullYear() - 2018;
+    if (japan.getUTCMonth() < 3) { reiwaYear -= 1; }
+    return "R" + reiwaYear;
+  }
+
+  function fiscalYearMismatchMessage(year) {
+    if (!year) { return "入札日が正しい日付ではありません。実在する日付を入力してください。保存は行っていません。"; }
+    return "入札日は" + (year || "判定できない") + "年度です。現在の作業年度は" + activeFiscalYear + "年度です。上部メニューを" + (year || "正しい年度") + "へ切り替えるか、入札日を修正してください。保存は行っていません。";
+  }
+
+  function requireActiveFiscalYear(year) {
+    if (year && year === activeFiscalYear) { return true; }
+    byId("form-message").textContent = fiscalYearMismatchMessage(year);
+    return false;
   }
 
   function updateFiscalYearUi() {
-    var values = {};
-    var rows = plannedAnnouncements.concat(allAnnouncements);
     var select = byId("fiscal-year-input");
-    var current = fiscalYearNumber(activeFiscalYear) || 8;
-    var years = [];
-    var i;
-    values["R" + Math.max(1, current - 1)] = true;
-    values["R" + current] = true;
-    values["R" + (current + 1)] = true;
-    for (i = 0; i < rows.length; i += 1) {
-      if (itemFiscalYear(rows[i])) { values[itemFiscalYear(rows[i])] = true; }
-    }
-    for (i in values) { if (values.hasOwnProperty(i)) { years.push(i); } }
-    years.sort(function (left, right) { return fiscalYearNumber(left) - fiscalYearNumber(right); });
-    select.innerHTML = years.map(function (year) { return '<option value="' + year + '">' + year + '年度</option>'; }).join("");
+    select.innerHTML = ["R8", "R9", "R10", "R11", "R12"].map(function (year) { return '<option value="' + year + '">' + year + '年度</option>'; }).join("");
     select.value = activeFiscalYear;
-    byId("active-fiscal-year").textContent = "公開年度：" + activeFiscalYear;
+    byId("active-fiscal-year").textContent = "作業年度：" + activeFiscalYear;
     byId("public-html-link").href = DataService.getPublicHtmlUrl(activeFiscalYear);
     byId("public-html-link").textContent = activeFiscalYear + "年度の公開HTMLを確認";
   }
@@ -766,6 +768,7 @@
       byId("form-message").textContent = "コピー元の公告が見つかりません。再読込してください。";
       return;
     }
+    if (!requireActiveFiscalYear(itemFiscalYear(source))) { return; }
     links = linksFor(task.ID, plannedLinks);
     editingList = "planned";
     editingResultSourceId = String(source.ID);
@@ -790,6 +793,7 @@
   }
 
   function clearForm() {
+    formDirty = false;
     setResultFormMode(false);
     byId("announcement-form").reset();
     var rowIndex;
@@ -872,6 +876,7 @@
       byId("form-message").textContent = "結果作業の対象を確認できません。再読込してください。";
       return false;
     }
+    if (!requireActiveFiscalYear(itemFiscalYear(source))) { return false; }
     if (!task._virtualResult && !DataService.canManageAnnouncement(task, "planned", adminActive)) {
       byId("form-message").textContent = "この結果は別のユーザーが保存済みです。";
       return false;
@@ -1023,6 +1028,7 @@
       byId("form-message").innerHTML = "入札日はR8.8.10形式で入力してください。";
       return false;
     }
+    if (!requireActiveFiscalYear(fiscalYearForBidDate(byId("date-input").value))) { return false; }
     if (!announcement) {
       id = nextId(state.announcements);
       announcement = { ID: id, AuthorId: DataService.getCurrentUser().id, AuthorName: DataService.getCurrentUser().name, Created: new Date().toISOString(), Sort: String(state.announcements.length + 1), Status: "公告登録", OperationDate: "" };
@@ -1127,6 +1133,7 @@
     if (workflowBusy || pendingSave) { return; }
     var id = this.getAttribute("data-id"), kind = this.getAttribute("data-list") || "planned", state = listState(kind);
     var item = announcementById(id, state.announcements), links = linksFor(id, state.links);
+    if (!item || !requireActiveFiscalYear(itemFiscalYear(item))) { return; }
     if (!DataService.canManageAnnouncement(item, kind, adminActive) || !window.confirm("この公告を削除しますか？")) { return; }
     function deleted() {
       deletedAnnouncements.unshift({ deletedAt: new Date().toLocaleString(), announcement: copyObject(item), links: links.map(copyObject) });
@@ -1147,6 +1154,7 @@
     var patch = { PublicState: "掲載終了", Category: "", Status: "公開待ち", OperationDate: operationDateText() };
     var key;
     if (!adminActive || !item || PublicationWorkflow.state(item) === "掲載終了") { return; }
+    if (!requireActiveFiscalYear(itemFiscalYear(item))) { return; }
     function ended() {
       for (key in patch) { if (patch.hasOwnProperty(key)) { item[key] = patch[key]; } }
       unsaved = !DataService.isSharePoint();
@@ -1173,6 +1181,7 @@
       byId("form-message").textContent = "保存済みの結果またはコピー元公告を確認できません。";
       return;
     }
+    if (!requireActiveFiscalYear(itemFiscalYear(source))) { return; }
     if (!resultLinks.length || resultLinks.some(function (link) { return !/_kk\.pdf$/i.test(link.URL || ""); })) {
       byId("form-message").textContent = "結果PDFが未登録です。結果作業を完了してから本リストへ登録してください。";
       return;
@@ -1244,6 +1253,7 @@
     var fromKind = this.getAttribute("data-list") || "planned", toKind = fromKind === "planned" ? "published" : "planned";
     var from = listState(fromKind), to = listState(toKind), item = announcementById(this.getAttribute("data-id"), from.announcements);
     if (!adminActive || !item) { return; }
+    if (!requireActiveFiscalYear(itemFiscalYear(item))) { return; }
     if (fromKind === "planned" && isResultWork(item)) { publishResultWork(item); return; }
     var patch = { ListKind: toKind, Status: toKind === "published" ? "公開待ち" : "内容修正", OperationDate: operationDateText() };
     if (toKind === "published" && item.Status === "入札終了登録") { patch.PublicState = "掲載終了"; }
@@ -1277,13 +1287,17 @@
     var id = this.getAttribute("data-id");
     var index = -1;
     var nextIndex;
+    var currentPosition;
+    var nextPosition;
+    var yearItems;
     var i;
     var temporary;
     if (!adminActive) {
       return;
     }
-    for (i = 0; i < state.announcements.length; i += 1) {
-      if (String(state.announcements[i].ID) === String(id)) {
+    yearItems = state.announcements.filter(function (item) { return itemFiscalYear(item) === activeFiscalYear; });
+    for (i = 0; i < yearItems.length; i += 1) {
+      if (String(yearItems[i].ID) === String(id)) {
         index = i;
         break;
       }
@@ -1292,12 +1306,17 @@
       return;
     }
     nextIndex = this.className.indexOf("order-up-button") >= 0 ? index - 1 : index + 1;
-    if (nextIndex < 0 || nextIndex >= state.announcements.length) {
+    if (nextIndex < 0 || nextIndex >= yearItems.length) {
       return;
     }
-    temporary = state.announcements[index];
-    state.announcements[index] = state.announcements[nextIndex];
-    state.announcements[nextIndex] = temporary;
+    currentPosition = state.announcements.indexOf(yearItems[index]);
+    nextPosition = state.announcements.indexOf(yearItems[nextIndex]);
+    temporary = state.announcements[currentPosition];
+    state.announcements[currentPosition] = state.announcements[nextPosition];
+    state.announcements[nextPosition] = temporary;
+    temporary = yearItems[index];
+    yearItems[index] = yearItems[nextIndex];
+    yearItems[nextIndex] = temporary;
     temporary.OperationDate = operationDateText();
     if (kind === "published") {
       preserveAnnouncementOrder = true;
@@ -1305,7 +1324,7 @@
       preservePlannedOrder = true;
     }
     unsaved = true;
-    var persistedAnnouncements = state.announcements.filter(function (item) { return !item._virtualResult; });
+    var persistedAnnouncements = yearItems.filter(function (item) { return !item._virtualResult; });
     persistedAnnouncements.forEach(function (item, position) { item.Sort = String(position + 1); });
     filterAnnouncements();
     if (DataService.isSharePoint()) {
@@ -1329,7 +1348,7 @@
         for (linkIndex = 0; linkIndex < links.length; linkIndex += 1) {
           text += " " + String(links[linkIndex].Text || "").toLowerCase();
         }
-        if (text.indexOf(keyword) >= 0) {
+        if (itemFiscalYear(state.announcements[i]) === activeFiscalYear && text.indexOf(keyword) >= 0) {
           filtered.push(state.announcements[i]);
         }
       }
@@ -1356,8 +1375,6 @@
     allAnnouncements.sort(function (a, b) { return Number(a.Sort || 0) - Number(b.Sort || 0); });
     allLinks = data.publishedLinks || [];
     allSettings = data.settings || [];
-    var yearSetting = settingByType("fiscal_year");
-    activeFiscalYear = yearSetting && /^R[1-9][0-9]*$/.test(yearSetting.Text || "") ? yearSetting.Text : DataService.getFiscalYear();
     DataService.setFiscalYear(activeFiscalYear);
     byId("database-input").value = data.database || "KOKOKU";
     updateFiscalYearUi();
@@ -1373,7 +1390,7 @@
 
   function loadData() {
     if (workflowBusy || pendingSave) { return; }
-    selectedPdfFiles = {}; unsaved = false; pendingSave = null;
+    selectedPdfFiles = {}; unsaved = false; formDirty = false; pendingSave = null;
     deactivateAdmin();
     byId("database-apply").disabled = true;
     byId("data-mode-apply").disabled = true;
@@ -1408,41 +1425,25 @@
 
   function switchFiscalYear() {
     var year;
-    var setting;
-    var isNew;
-    if (!adminActive || workflowBusy || pendingSave) { return; }
     year = String(byId("fiscal-year-input").value || "");
-    if (!/^R[1-9][0-9]*$/.test(year)) {
-      byId("admin-message").textContent = "公開年度を選択してください。";
+    if (["R8", "R9", "R10", "R11", "R12"].indexOf(year) < 0) {
+      byId("admin-message").textContent = "R8年度からR12年度までの作業年度を選択してください。";
+      byId("fiscal-year-input").value = activeFiscalYear;
       return;
     }
-    setting = settingByType("fiscal_year");
-    isNew = !setting;
-    if (!setting) {
-      setting = { ID: String(allSettings.length + 1), Type: "fiscal_year", Text: year, URL: "", Sort: "2" };
-      allSettings.push(setting);
-    } else {
-      setting.Text = year;
+    if (year === activeFiscalYear) { return; }
+    if (workflowBusy || pendingSave || formDirty) {
+      byId("fiscal-year-input").value = activeFiscalYear;
+      byId("admin-message").textContent = "未保存の入力または選択PDFがあるため、年度を切り替えられません。先に保存またはキャンセルしてください。";
+      return;
     }
+    if (byId("announcement-id").value || resultWorkMode) { clearForm(); }
     activeFiscalYear = year;
     DataService.setFiscalYear(year);
     updateFiscalYearUi();
-    renderSettings();
-    byId("data-status").innerHTML = year + "年度を公開対象にしています。";
+    filterAnnouncements();
+    byId("data-status").innerHTML = year + "年度を作業対象にしています。";
     byId("admin-message").textContent = year + "年度へ切り替えました。";
-    if (!DataService.isSharePoint()) {
-      unsaved = true;
-      byId("admin-message").textContent += " 設定CSVも出力してください。";
-      return;
-    }
-    runSave([function (ok, fail) {
-      var payload = { Type: "fiscal_year", Text: year, URL: "", Sort: "2" };
-      if (isNew && !setting.Id) {
-        DataService.add("settings", payload, function (saved) { setting.Id = saved.Id || saved.ID; setting.ID = String(setting.Id); ok(); }, fail);
-      } else {
-        DataService.update("settings", setting.Id || setting.ID, payload, ok, fail);
-      }
-    }], function () { byId("admin-message").textContent = year + "年度への切り替えをSharePointへ保存しました。"; });
   }
 
   function setHidden(element, hidden) {
@@ -1681,6 +1682,7 @@
     var yearKeys = Object.keys(importYears);
     if (yearKeys.length > 1) { throw new Error("複数年度の公告が含まれています。年度別HTMLを選択してください。"); }
     importYear = yearKeys.length ? yearKeys[0] : activeFiscalYear;
+    if (importYear !== activeFiscalYear) { throw new Error("取込HTMLは" + importYear + "年度です。上部メニューを" + importYear + "年度へ切り替えてから取り込んでください。"); }
     previous = allAnnouncements.filter(function (item) { return itemFiscalYear(item) === importYear; });
     previous.forEach(function (item) { previousIds[String(item.ID)] = true; });
     previousLinks = allLinks.filter(function (link) { return previousIds[String(link.KokokuID)] === true; });
@@ -1743,7 +1745,7 @@
       byId("setting-date").value = "";
       return;
     }
-    html.push("<strong>公開年度</strong> " + escapeHtml(activeFiscalYear) + "年度　");
+    html.push("<strong>作業年度</strong> " + escapeHtml(activeFiscalYear) + "年度　");
     html.push("<strong>基準日</strong> " + escapeHtml(dateSetting.Text));
     byId("import-settings").innerHTML = html.join("");
     byId("setting-date").value = dateSetting.Text;
@@ -1832,7 +1834,7 @@
       }
     };
     function markEdited(event) {
-      if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName) && event.target.id !== "search-input" && event.target.id !== "database-input" && event.target.id !== "data-mode-input" && event.target.id !== "fiscal-year-input") { unsaved = true; }
+      if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName) && event.target.id !== "search-input" && event.target.id !== "database-input" && event.target.id !== "data-mode-input" && event.target.id !== "fiscal-year-input") { unsaved = true; formDirty = true; }
     }
     document.addEventListener("change", markEdited);
     document.addEventListener("input", markEdited);
@@ -1867,7 +1869,7 @@
     byId("admin-logout").onclick = deactivateAdmin;
     byId("database-apply").onclick = switchDatabase;
     byId("data-mode-apply").onclick = switchDataMode;
-    byId("fiscal-year-apply").onclick = switchFiscalYear;
+    byId("fiscal-year-input").onchange = switchFiscalYear;
     byId("show-deleted").onclick = toggleDeletedList;
     byId("close-deleted").onclick = function () { setHidden(byId("deleted-list-panel"), true); };
     byId("admin-access-form").onsubmit = function (event) {

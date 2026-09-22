@@ -50,9 +50,10 @@ test('Direct save and delete handlers reject other users posts without changing 
   ctx.window=ctx;
   ctx.confirm=()=>assert.fail('unauthorized delete must stop before confirmation');
   vm.createContext(ctx);
-  const source=fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', 'global.guardTest = { save: saveAnnouncement, remove: deleteAnnouncement, setItems: function(items) { plannedAnnouncements=items; } };');
+  vm.runInContext(fs.readFileSync('js/publication-workflow.js','utf8'),ctx);
+  const source=fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', 'activeFiscalYear="R8";global.guardTest = { save: saveAnnouncement, remove: deleteAnnouncement, setItems: function(items) { plannedAnnouncements=items; } };');
   vm.runInContext(source,ctx);
-  const item={ID:'1',AuthorId:'bob',Remarks:'original'};
+  const item={ID:'1',AuthorId:'bob',Remarks:'original',BidDate:'R8.10.1',FiscalYear:'R8'};
   ctx.guardTest.setItems([item]);
   assert.equal(ctx.guardTest.save({preventDefault:()=>{}}),false);
   ctx.guardTest.remove.call({getAttribute:key=>key==='data-id'?'1':'planned'});

@@ -90,7 +90,7 @@ test('Moving a new announcement waits for ZIP success before publication; ZIP fa
     DataService:{isSharePoint:()=>false,getPublicHtmlPath:()=> 'nafin/R8open.html',getPublicHtmlFileName:()=> 'R8open.html',getPublicationConfig:()=>({endedUrl:'R8/4/end.pdf'})},
     HtmlExport:{create:()=>'<html></html>'}, ZipExport:{create:(files,ok,fail)=>{assert.equal(files[0].name,'nafin/R8open.html');zipSuccess=ok;zipFailure=fail;}} };
   vm.createContext(context);vm.runInContext(fs.readFileSync('js/publication-workflow.js','utf8'),context);
-  vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', `global.testFlow = { move: moveAnnouncement, zip: exportZip, setup: function(item) { adminActive=true; filterAnnouncements=function(){}; plannedAnnouncements=[item]; plannedLinks=[{ID:'1',KokokuID:item.ID,Text:'PDF',URL:'R8/op/a.pdf'}]; }, items:function(){return allAnnouncements;} };`),context);
+  vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', `global.testFlow = { move: moveAnnouncement, zip: exportZip, setup: function(item) { adminActive=true; activeFiscalYear="R8"; filterAnnouncements=function(){}; plannedAnnouncements=[item]; plannedLinks=[{ID:'1',KokokuID:item.ID,Text:'PDF',URL:'R8/op/a.pdf'}]; }, items:function(){return allAnnouncements;} };`),context);
   const item={ID:'1',Category:'NEW',Status:'公告登録',BidDate:'R8.10.1',FiscalYear:'R8'};
   context.testFlow.setup(item);
   context.testFlow.move.call({getAttribute:key=>key==='data-id'?'1':'planned'});
@@ -142,8 +142,8 @@ test('Administrator end button sets the ended state and configured end PDF witho
   const elements={};
   const context={document:{getElementById:id=>elements[id]||(elements[id]={})},DataService:{isSharePoint:()=>false}};
   vm.createContext(context);vm.runInContext(fs.readFileSync('js/publication-workflow.js','utf8'),context);
-  vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', `global.testEnd={setup:function(item,link){adminActive=true;allAnnouncements=[item];allLinks=[link];filterAnnouncements=function(){};},end:endPublication,data:function(){return {announcements:allAnnouncements,links:allLinks};}};`),context);
-  const item={ID:'10',Category:'NEW',Status:'公告反映済',PublicState:'公告掲載中'};
+  vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', `global.testEnd={setup:function(item,link){adminActive=true;activeFiscalYear="R8";allAnnouncements=[item];allLinks=[link];filterAnnouncements=function(){};},end:endPublication,data:function(){return {announcements:allAnnouncements,links:allLinks};}};`),context);
+  const item={ID:'10',Category:'NEW',Status:'公告反映済',PublicState:'公告掲載中',BidDate:'R8.10.1',FiscalYear:'R8'};
   const link={ID:'20',KokokuID:'10',Text:'公告PDF',FileName:'original.pdf',URL:'R8/be/original.pdf',Type:'公告'};
   context.testEnd.setup(item,link);context.testEnd.end.call({getAttribute:()=> '10'});
   assert.equal(item.PublicState,'掲載終了');assert.equal(item.Category,'');assert.equal(item.Status,'公開待ち');
@@ -183,7 +183,7 @@ test('An ordinary user can save a virtual result task as the recorded result sub
   };
   const context={document:{getElementById:id=>elements[id]||(elements[id]={value:'',files:[]})},DataService:{getCurrentUser:()=>({id:'user-b',name:'利用者B'}),canManageAnnouncement:()=>false,isSharePoint:()=>false}};
   vm.createContext(context);vm.runInContext(fs.readFileSync('js/publication-workflow.js','utf8'),context);
-  vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', `clearForm=function(){resultWorkMode=false;};filterAnnouncements=function(){};global.testSaveResult={setup:function(source,task,link){allAnnouncements=[source];allLinks=[];plannedAnnouncements=[task];plannedLinks=[link];resultWorkMode=true;editingResultSourceId=source.ID;},save:saveResultWork,data:function(){return {items:plannedAnnouncements,links:plannedLinks,files:selectedPdfFiles};}};`),context);
+  vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', `clearForm=function(){resultWorkMode=false;};filterAnnouncements=function(){};global.testSaveResult={setup:function(source,task,link){activeFiscalYear="R8";allAnnouncements=[source];allLinks=[];plannedAnnouncements=[task];plannedLinks=[link];resultWorkMode=true;editingResultSourceId=source.ID;},save:saveResultWork,data:function(){return {items:plannedAnnouncements,links:plannedLinks,files:selectedPdfFiles};}};`),context);
   const source={ID:'10',Garrison:'札幌',BidDate:'R8.10.6',Remarks:'元備考',PublicState:'掲載終了'};
   const task={ID:'result-10',WorkType:'RESULT',SourceAnnouncementID:'10',WorkflowKey:'RESULT:10',_virtualResult:true};
   const link={ID:'result-link-10-0',KokokuID:'result-10',Text:'米購入',URL:'R8/4/end.pdf',Type:'掲載終了',_virtualResult:true};
@@ -196,8 +196,8 @@ test('Publishing a saved result overwrites its source announcement and removes t
   const elements={};
   const context={document:{getElementById:id=>elements[id]||(elements[id]={})},DataService:{isSharePoint:()=>false}};
   vm.createContext(context);vm.runInContext(fs.readFileSync('js/publication-workflow.js','utf8'),context);
-  vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', `filterAnnouncements=function(){};clearForm=function(){};global.testPublishResult={setup:function(source,sourceLink,task,resultLink){adminActive=true;allAnnouncements=[source];allLinks=[sourceLink];plannedAnnouncements=[task];plannedLinks=[resultLink];},publish:publishResultWork,data:function(){return {published:allAnnouncements,publishedLinks:allLinks,planned:plannedAnnouncements,plannedLinks:plannedLinks};}};`),context);
-  const source={ID:'10',Category:'',PublicState:'掲載終了',Status:'公告反映済'};
+  vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', `filterAnnouncements=function(){};clearForm=function(){};global.testPublishResult={setup:function(source,sourceLink,task,resultLink){adminActive=true;activeFiscalYear="R8";allAnnouncements=[source];allLinks=[sourceLink];plannedAnnouncements=[task];plannedLinks=[resultLink];},publish:publishResultWork,data:function(){return {published:allAnnouncements,publishedLinks:allLinks,planned:plannedAnnouncements,plannedLinks:plannedLinks};}};`),context);
+  const source={ID:'10',Category:'',PublicState:'掲載終了',Status:'公告反映済',BidDate:'R8.10.6',FiscalYear:'R8'};
   const sourceLink={ID:'20',KokokuID:'10',Text:'米購入',URL:'R8/be/original.pdf',Type:'公告'};
   const task={ID:'30',WorkType:'RESULT',SourceAnnouncementID:'10',Garrison:'札幌',BidDate:'R8.10.6',Remarks:'結果',ResultSubmittedById:'user-b',ResultSubmittedByName:'利用者B',ResultSubmittedAt:'2026-09-22T00:00:00Z'};
   const resultLink={ID:'40',KokokuID:'30',Text:'米購入',FileName:'081006-sap-n-bei_kk.pdf',URL:'R8/be/081006-sap-n-bei_kk.pdf',Type:'結果',Sort:'1'};
@@ -207,7 +207,7 @@ test('Publishing a saved result overwrites its source announcement and removes t
   assert.equal(data.publishedLinks[0].URL,resultLink.URL);assert.equal(data.publishedLinks[0].Type,'結果');assert.equal(data.planned.length,0);assert.equal(data.plannedLinks.length,0);
 });
 
-test('Publication output contains only the administrator-selected fiscal year', () => {
+test('Publication output contains only the selected working fiscal year', () => {
   const context={DataService:{getPublicationConfig:year=>({endedUrl:year+'/4/end.pdf'})}};
   vm.createContext(context);vm.runInContext(fs.readFileSync('js/publication-workflow.js','utf8'),context);
   vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', `global.testYear={setup:function(items,links,year){allAnnouncements=items;allLinks=links;activeFiscalYear=year;},data:publicationData};`),context);
@@ -220,4 +220,43 @@ test('Publication output contains only the administrator-selected fiscal year', 
   assert.deepEqual(Array.from(context.testYear.data().announcements,item=>item.ID),['8']);
   context.testYear.setup(rows,links,'R9');
   assert.deepEqual(Array.from(context.testYear.data().announcements,item=>item.ID),['9']);
+});
+
+test('Calendar default changes fiscal year at Japan midnight on April 1', () => {
+  const context={};vm.createContext(context);
+  vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', 'global.testCalendar={year:calendarFiscalYear};'),context);
+  assert.equal(context.testCalendar.year(new Date('2027-03-31T14:59:59Z')),'R8');
+  assert.equal(context.testCalendar.year(new Date('2027-03-31T15:00:00Z')),'R9');
+});
+
+test('Announcement save stops when bid-date fiscal year differs from working year', () => {
+  const elements={
+    'announcement-id':{value:''},'category-input':{value:'NEW'},'garrison-input':{value:'札幌'},
+    'status-input':{value:'公告登録'},'date-input':{value:'R9.4.1'},'remarks-input':{value:''},
+    'form-message':{textContent:'',innerHTML:''}
+  };
+  for(let i=1;i<=5;i+=1){elements['link-text-input-'+i]={value:i===1?'年度不一致試験':''};elements['link-url-input-'+i]={value:i===1?'R9/be/test.pdf':''};elements['pdf-file-input-'+i]={files:[]};}
+  const context={document:{getElementById:id=>elements[id]||(elements[id]={})},DataService:{getCurrentUser:()=>({id:'user-a',name:'利用者A'}),canManageAnnouncement:()=>true}};
+  vm.createContext(context);vm.runInContext(fs.readFileSync('js/publication-workflow.js','utf8'),context);
+  vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', 'activeFiscalYear="R8";global.testMismatch={save:saveAnnouncement,count:function(){return plannedAnnouncements.length;}};'),context);
+  assert.equal(context.testMismatch.save({preventDefault:()=>{}}),false);
+  assert.equal(context.testMismatch.count(),0);assert.match(elements['form-message'].textContent,/現在の作業年度はR8年度/);assert.match(elements['form-message'].textContent,/保存は行っていません/);
+});
+
+test('Ordinary user can switch R8-R12 views and dirty input blocks switching', () => {
+  const elements={
+    'fiscal-year-input':{value:'R8',innerHTML:''},'active-fiscal-year':{},'public-html-link':{},
+    'data-status':{},'admin-message':{},'form-message':{},'search-input':{value:''},
+    'planned-announcement-list':{},'planned-record-count':{},'announcement-list':{},'record-count':{}
+  };
+  const context={document:{getElementById:id=>elements[id]||(elements[id]={}),getElementsByClassName:()=>[]},DataService:{
+    setFiscalYear:()=>true,getPublicHtmlUrl:year=>'https://example.test/'+year+'.html',canManageAnnouncement:()=>false,
+    getPublicLinkUrl:value=>value,getPublicationConfig:year=>({endedUrl:year+'/4/end.pdf'})
+  }};
+  vm.createContext(context);vm.runInContext(fs.readFileSync('js/publication-workflow.js','utf8'),context);
+  vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', `global.testSwitch={setup:function(){activeFiscalYear="R8";plannedAnnouncements=[{ID:"8",BidDate:"R8.10.1",FiscalYear:"R8",Category:"NEW",Garrison:"札幌",Status:"公告登録"},{ID:"9",BidDate:"R9.4.1",FiscalYear:"R9",Category:"NEW",Garrison:"旭川",Status:"公告登録"}];plannedLinks=[];allAnnouncements=[];allLinks=[];unsaved=false;formDirty=false;},switch:switchFiscalYear,dirty:function(){unsaved=true;formDirty=true;},year:function(){return activeFiscalYear;}};`),context);
+  context.testSwitch.setup();elements['fiscal-year-input'].value='R9';context.testSwitch.switch();
+  assert.equal(context.testSwitch.year(),'R9');assert.match(elements['planned-announcement-list'].innerHTML,/旭川/);assert.doesNotMatch(elements['planned-announcement-list'].innerHTML,/札幌/);assert.match(elements['fiscal-year-input'].innerHTML,/R12年度/);
+  context.testSwitch.dirty();elements['fiscal-year-input'].value='R10';context.testSwitch.switch();
+  assert.equal(context.testSwitch.year(),'R9');assert.match(elements['admin-message'].textContent,/年度を切り替えられません/);
 });
