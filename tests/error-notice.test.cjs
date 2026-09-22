@@ -30,7 +30,7 @@ test('IE-style download and date fallback do not produce a compatibility error',
 test('Missing required feature names the affected operation in visible notification', () => {
   const { panel } = environment(true);
   assert.equal(panel.hidden, false);
-  assert.match(panel.children[1].textContent, /PDF読込・ZIP作成/);
+  assert.match(panel.children[1].textContent, /PDF読込・アップロード・ZIP作成/);
 });
 
 test('Runtime and script-loading errors are visible and dismissible', () => {

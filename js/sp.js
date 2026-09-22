@@ -301,10 +301,41 @@
     }, error);
   };
 
+  SP.checkFolder = function (folderPath, success, error) {
+    var folder = String(folderPath || "").replace(/^\s+|\s+$/g, "").replace(/'/g, "''");
+    if (!folder) {
+      if (error) { error({ status: 400, statusText: "PDF保存先が未設定です。" }); }
+      return;
+    }
+    request("GET", SP.api + "/web/GetFolderByServerRelativeUrl('" + folder + "')?$select=ServerRelativeUrl,Exists", { "Accept": "application/json;odata=verbose" }, null, function (xhr) {
+      var result = {};
+      try { result = JSON.parse(xhr.responseText).d || {}; } catch (ignore) {}
+      if (result.Exists === false) {
+        if (error) { error({ status: 404, statusText: "PDF保存フォルダーが存在しません。", responseText: xhr.responseText }); }
+        return;
+      }
+      if (success) { success(result, xhr); }
+    }, error);
+  };
+
   SP.uploadFile = function (folderPath, fileName, file, success, error) {
+    var rawFolder = String(folderPath || "").replace(/^\s+|\s+$/g, "");
+    var rawName = String(fileName || (file && file.name) || "").replace(/^\s+|\s+$/g, "");
+    if (!rawFolder) {
+      if (error) { error({ status: 400, statusText: "PDF保存先が未設定です。" }); }
+      return;
+    }
+    if (!file || !rawName) {
+      if (error) { error({ status: 400, statusText: "PDFファイルまたはファイル名がありません。" }); }
+      return;
+    }
+    if (!global.FileReader || !global.FileReader.prototype || !global.FileReader.prototype.readAsArrayBuffer) {
+      if (error) { error({ status: 0, statusText: "このブラウザーではPDFを読み込めません。" }); }
+      return;
+    }
     getDigest(function (digest) {
-      var folder = String(folderPath || "").replace(/^\s+|\s+$/g, "").replace(/'/g, "''");
-      var name = String(fileName || file.name || "").replace(/'/g, "''");
+      var folder = rawFolder.replace(/'/g, "''");
+      var name = rawName.replace(/'/g, "''");
       var reader = new FileReader();
       reader.onload = function () {
         request("POST", SP.api + "/web/GetFolderByServerRelativeUrl('" + folder + "')/Files/add(url='" + name + "',overwrite=true)", { "Accept": "application/json;odata=verbose", "X-RequestDigest": digest, "Content-Type": "application/octet-stream" }, reader.result, success, error);
@@ -313,9 +344,13 @@
         if (global.Diagnostics) {
           global.Diagnostics.error("PDF", "PDFファイルを読み込めませんでした。", fileName || (file && file.name) || "");
         }
-        if (error) { error(); }
+        if (error) { error({ status: 0, statusText: "PDFファイルを読み込めませんでした。" }); }
       };
-      reader.readAsArrayBuffer(file);
+      try {
+        reader.readAsArrayBuffer(file);
+      } catch (exception) {
+        if (error) { error({ status: 0, statusText: exception && exception.message ? exception.message : "PDFファイルを読み込めませんでした。" }); }
+      }
     }, error);
   };
 

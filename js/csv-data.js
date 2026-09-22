@@ -87,11 +87,54 @@
     button.style.font = "12px Meiryo, sans-serif";
   }
 
+  function fileSizeText(size) {
+    var value = Number(size);
+    if (!isFinite(value) || value < 0) {
+      return "不明";
+    }
+    if (value >= 1024 * 1024) {
+      return (value / (1024 * 1024)).toFixed(2) + " MB";
+    }
+    if (value >= 1024) {
+      return (value / 1024).toFixed(1) + " KB";
+    }
+    return value + " bytes";
+  }
+
+  function checkPdfFile(file, purpose) {
+    var label = purpose || "PDF";
+    var name;
+    var valid = true;
+    if (!global.FileReader || !global.FileReader.prototype || !global.FileReader.prototype.readAsArrayBuffer) {
+      add("ERROR", "PDF-UPLOAD", label + "を読み込めないブラウザーです。", "FileReader.readAsArrayBuffer がありません。");
+      valid = false;
+    }
+    if (!file) {
+      add("ERROR", "PDF-UPLOAD", label + "が選択されていません。", "");
+      return false;
+    }
+    name = String(file.name || "");
+    if (!/\.pdf$/i.test(name)) {
+      add("ERROR", "PDF-UPLOAD", label + "のファイル形式がPDFではありません。", name || "ファイル名なし");
+      valid = false;
+    }
+    if (typeof file.size === "number" && file.size === 0) {
+      add("ERROR", "PDF-UPLOAD", label + "のファイル容量が0 bytesです。", name);
+      valid = false;
+    }
+    if (file.type && String(file.type).toLowerCase() !== "application/pdf") {
+      add("WARN", "PDF-UPLOAD", label + "の種類情報がPDFと一致しません。拡張子と内容を確認してください。", "File=" + name + " / Type=" + file.type);
+    }
+    add(valid ? "INFO" : "ERROR", "PDF-UPLOAD", valid ? label + "の事前確認に合格しました。" : label + "は保存できません。", "File=" + (name || "不明") + " / Size=" + fileSizeText(file.size));
+    return valid;
+  }
+
   function createUi() {
     var header;
     var title;
     var copyButton;
     var clearButton;
+    var pdfButton;
     var closeButton;
     if (initialized || !document.body) {
       return;
@@ -161,6 +204,26 @@
       render();
     };
     header.appendChild(clearButton);
+
+    pdfButton = document.createElement("button");
+    pdfButton.type = "button";
+    pdfButton.innerHTML = "PDF保存診断";
+    pdfButton.title = "公告・結果PDFの保存環境を確認";
+    buttonStyle(pdfButton);
+    pdfButton.onclick = function () {
+      add("INFO", "PDF-UPLOAD", "PDF保存診断を開始しました。", "");
+      if (!global.FileReader || !global.FileReader.prototype || !global.FileReader.prototype.readAsArrayBuffer) {
+        add("ERROR", "PDF-UPLOAD", "このブラウザーではPDFを読み込めません。", "FileReader.readAsArrayBuffer がありません。");
+      } else {
+        add("INFO", "PDF-UPLOAD", "ブラウザーのPDF読込機能を確認しました。", "FileReader.readAsArrayBuffer");
+      }
+      if (global.DataService && global.DataService.runPdfUploadDiagnostics) {
+        global.DataService.runPdfUploadDiagnostics();
+      } else {
+        add("ERROR", "PDF-UPLOAD", "PDF保存設定を確認できません。", "DataService が読み込まれていません。");
+      }
+    };
+    header.appendChild(pdfButton);
 
     closeButton = document.createElement("button");
     closeButton.type = "button";
@@ -239,6 +302,7 @@
     log: function (source, message, detail) { add("INFO", source, message, detail); },
     warn: function (source, message, detail) { add("WARN", source, message, detail); },
     error: function (source, message, detail) { add("ERROR", source, message, detail); },
+    checkPdfFile: checkPdfFile,
     httpError: function (source, method, url, request) {
       var status = request && typeof request.status !== "undefined" ? request.status : "?";
       var statusText = request && request.statusText ? request.statusText : "";

@@ -14,7 +14,7 @@
     var missing = [];
     if (!global.XMLHttpRequest) { missing.push("データの読込・SharePoint接続"); }
     if (!global.JSON || !global.JSON.parse || !global.JSON.stringify) { missing.push("データ処理"); }
-    if (!global.FileReader || !global.FileReader.prototype.readAsArrayBuffer) { missing.push("PDF読込・ZIP作成"); }
+    if (!global.FileReader || !global.FileReader.prototype.readAsArrayBuffer) { missing.push("PDF読込・アップロード・ZIP作成"); }
     if (!global.Blob || !global.Uint8Array) { missing.push("CSV・HTML・ZIP出力"); }
     if (!global.DOMParser || !document.implementation || !document.implementation.createHTMLDocument) { missing.push("HTML取込・公開リンク処理"); }
     var anchor = document.createElement("a");

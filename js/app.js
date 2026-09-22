@@ -150,6 +150,14 @@
     return byId(field + "-" + (rowIndex + 1));
   }
 
+  function validPdfFile(file, purpose) {
+    if (!file) { return true; }
+    if (global.Diagnostics && global.Diagnostics.checkPdfFile) {
+      return global.Diagnostics.checkPdfFile(file, purpose);
+    }
+    return /\.pdf$/i.test(String(file.name || "")) && !(typeof file.size === "number" && file.size === 0);
+  }
+
   function updatePdfLink(rowIndex) {
     if (resultWorkMode) { return; }
     var title = pdfInput("link-text-input", rowIndex).value.trim();
@@ -197,7 +205,13 @@
     for (i = 0; i < PDF_ROW_COUNT; i += 1) {
       (function (rowIndex) {
         pdfInput("link-text-input", rowIndex).oninput = function () { updatePdfLink(rowIndex); };
-        pdfInput("pdf-file-input", rowIndex).onchange = function () { if (resultWorkMode) { updateResultPdfLink(rowIndex); } };
+        pdfInput("pdf-file-input", rowIndex).onchange = function () {
+          var file = this.files && this.files.length ? this.files[0] : null;
+          if (file && !validPdfFile(file, resultWorkMode ? "結果PDF" : "公告PDF")) {
+            byId("form-message").textContent = "選択したPDFを保存できません。右上の「診断」で内容を確認してください。";
+          }
+          if (resultWorkMode) { updateResultPdfLink(rowIndex); }
+        };
         byId("pdf-file-clear-" + (rowIndex + 1)).onclick = function () { clearResultPdf(rowIndex); };
       }(i));
     }
@@ -214,9 +228,8 @@
     var sequence = (filenameGenerationSequences[rowIndex] || 0) + 1;
     filenameGenerationSequences[rowIndex] = sequence;
     if (!file) { clearResultPdf(rowIndex); return; }
-    if (file.type && file.type !== "application/pdf" && !/\.pdf$/i.test(file.name || "")) {
-      input.value = "";
-      byId("form-message").textContent = "PDFファイルを選択してください。";
+    if (!validPdfFile(file, "結果PDF")) {
+      byId("form-message").textContent = "選択した結果PDFを保存できません。右上の「診断」で内容を確認してください。";
       return;
     }
     FilenameGenerator.generate({ title: pdfInput("link-text-input", rowIndex).value, garrison: byId("garrison-input").value, category: "NEW", date: bidDateAsDate() }, function (result) {
@@ -760,7 +773,7 @@
     payload.ListKind = kind;
     links.forEach(function (link) {
       var file = selectedFiles[pdfKey(kind, link.ID)] || selectedPdfFiles[pdfKey(kind, link.ID)];
-      if (file) { tasks.push(function (ok, fail) { DataService.uploadPdf(file, link.FileName || fileNameFromUrl(link.URL), ok, fail); }); }
+      if (file) { tasks.push(function (ok, fail) { DataService.uploadPdf(file, link.FileName || fileNameFromUrl(link.URL), ok, fail, isResultWork(announcement) ? "結果PDF" : "公告PDF"); }); }
     });
     tasks.push(function (ok, fail) {
       if (isNew && !announcement.Id) {
@@ -808,6 +821,10 @@
     links = linksFor(task.ID, plannedLinks);
     for (i = 0; i < links.length; i += 1) {
       file = pdfInput("pdf-file-input", i).files && pdfInput("pdf-file-input", i).files.length ? pdfInput("pdf-file-input", i).files[0] : null;
+      if (file && !validPdfFile(file, "結果PDF")) {
+        byId("form-message").textContent = "選択した結果PDFを保存できません。右上の「診断」で内容を確認してください。";
+        return false;
+      }
       if (!/_kk\.pdf$/i.test(pdfInput("link-url-input", i).value) && !selectedPdfFiles[pdfKey("planned", links[i].ID)]) {
         byId("form-message").textContent = "結果PDFを選択してください。";
         return false;
@@ -929,6 +946,12 @@
         return false;
       }
       if (text) {
+        fileInput = pdfInput("pdf-file-input", i);
+        file = fileInput.files && fileInput.files.length ? fileInput.files[0] : null;
+        if (file && !validPdfFile(file, "公告PDF")) {
+          byId("form-message").textContent = "選択した公告PDFを保存できません。右上の「診断」で内容を確認してください。";
+          return false;
+        }
         linkRecords.push({ rowIndex: i, text: text, url: url });
       }
     }

@@ -311,12 +311,96 @@
     return currentConfig && String(currentConfig.DATA_MODE || "CSV").toUpperCase() === "SHAREPOINT";
   };
 
-  DataService.uploadPdf = function (file, fileName, success, error) {
+  function pdfFolder() {
+    return String((currentDatabase && currentDatabase.pdfLibrary) || (currentConfig && currentConfig.PDF_LIBRARY) || "").replace(/^\s+|\s+$/g, "");
+  }
+
+  function pdfUploadFailureDetail(request, folder, fileName, file) {
+    var status = request && typeof request.status !== "undefined" ? String(request.status) : "?";
+    var reason;
+    if (status === "401" || status === "403") {
+      reason = "SharePointへのログイン状態、またはPDF保存フォルダーの書き込み権限を確認してください。";
+    } else if (status === "404") {
+      reason = "設定したPDF保存フォルダーが存在するか確認してください。";
+    } else if (status === "409" || status === "412") {
+      reason = "同名ファイルまたは同時更新との競合を確認してください。";
+    } else if (status === "413") {
+      reason = "PDFがSharePointまたはWebサーバーの容量制限を超えています。";
+    } else if (status === "400") {
+      reason = "PDF名、保存先、ファイル形式を確認してください。";
+    } else if (status === "0" || status === "?") {
+      reason = "ブラウザーのPDF読込機能、通信、ログイン状態、CORS設定を確認してください。";
+    } else {
+      reason = "SharePointの応答とPDF保存先の制約を確認してください。";
+    }
+    return "HTTP " + status + (request && request.statusText ? " " + request.statusText : "") +
+      "\r\nFile=" + String(fileName || (file && file.name) || "不明") +
+      " / Size=" + (file && typeof file.size === "number" ? file.size + " bytes" : "不明") +
+      "\r\nFolder=" + (folder || "未設定") + "\r\n" + reason;
+  }
+
+  DataService.runPdfUploadDiagnostics = function () {
+    var folder = pdfFolder();
+    var mode = DataService.getMode();
+    if (global.Diagnostics) {
+      global.Diagnostics.log("PDF-UPLOAD", "PDF保存設定を確認しています。", "Mode=" + mode + " / Database=" + DataService.getDatabase() + " / Folder=" + (folder || "未設定"));
+    }
+    if (mode !== "SHAREPOINT") {
+      if (global.Diagnostics) {
+        global.Diagnostics.warn("PDF-UPLOAD", "CSVモードではPDFをSharePointへアップロードしません。", "選択したPDFはブラウザーのメモリ上に保持され、ZIP出力に含まれます。実際の書き込み権限はSharePointモードで確認してください。");
+      }
+      return;
+    }
+    if (!folder) {
+      if (global.Diagnostics) { global.Diagnostics.error("PDF-UPLOAD", "PDF保存先が設定されていません。", "DB_..._PDF_LIBRARY または PDF_LIBRARY を設定してください。"); }
+      return;
+    }
+    if (!global.SP || !global.SP.checkFolder) {
+      if (global.Diagnostics) { global.Diagnostics.error("PDF-UPLOAD", "PDF保存先を確認できません。", "SP.checkFolder が読み込まれていません。"); }
+      return;
+    }
+    global.SP.checkFolder(folder, function (result) {
+      if (global.Diagnostics) {
+        global.Diagnostics.log("PDF-UPLOAD", "PDF保存フォルダーへの接続を確認しました。", "Folder=" + (result.ServerRelativeUrl || folder) + "\r\n書き込み権限と容量制限は、実際のPDF保存結果で判定します。");
+      }
+    }, function (request) {
+      var detail = pdfUploadFailureDetail(request, folder, "診断", null);
+      if (global.Diagnostics) { global.Diagnostics.error("PDF-UPLOAD", "PDF保存フォルダーを利用できません。", detail); }
+      if (global.ErrorNotice) { global.ErrorNotice.notify("PDF保存先を利用できません。右上の「診断」で保存先、ログイン状態、権限を確認してください。"); }
+    });
+  };
+
+  DataService.uploadPdf = function (file, fileName, success, error, purpose) {
+    var folder = pdfFolder();
+    var label = purpose || "PDF";
+    var valid = !!file && /\.pdf$/i.test(String(file.name || "")) && !(typeof file.size === "number" && file.size === 0);
+    if (global.Diagnostics && global.Diagnostics.checkPdfFile) {
+      valid = global.Diagnostics.checkPdfFile(file, label);
+    }
+    if (!valid) {
+      if (error) { error({ status: 400, statusText: "PDF事前確認エラー" }); }
+      return;
+    }
     if (!DataService.isSharePoint()) {
+      if (global.Diagnostics) { global.Diagnostics.warn("PDF-UPLOAD", "CSVモードのためPDFはSharePointへアップロードしません。", fileName || (file && file.name) || ""); }
       if (success) { success(); }
       return;
     }
-    SP.uploadFile((currentDatabase && currentDatabase.pdfLibrary) || currentConfig.PDF_LIBRARY, fileName, file, success, error);
+    if (!folder) {
+      if (global.Diagnostics) { global.Diagnostics.error("PDF-UPLOAD", label + "の保存先が設定されていません。", "DB_..._PDF_LIBRARY または PDF_LIBRARY を設定してください。"); }
+      if (error) { error({ status: 400, statusText: "PDF保存先が未設定です。" }); }
+      return;
+    }
+    if (global.Diagnostics) { global.Diagnostics.log("PDF-UPLOAD", label + "のアップロードを開始しました。", "File=" + fileName + " / Size=" + (typeof file.size === "number" ? file.size + " bytes" : "不明") + " / Folder=" + folder); }
+    SP.uploadFile(folder, fileName, file, function (result) {
+      if (global.Diagnostics) { global.Diagnostics.log("PDF-UPLOAD", label + "のアップロードに成功しました。", "File=" + fileName + " / Folder=" + folder); }
+      if (success) { success(result); }
+    }, function (request) {
+      var detail = pdfUploadFailureDetail(request, folder, fileName, file);
+      if (global.Diagnostics) { global.Diagnostics.error("PDF-UPLOAD", label + "をアップロードできませんでした。", detail); }
+      if (global.ErrorNotice) { global.ErrorNotice.notify(label + "をSharePointへ保存できませんでした。変更は保持しています。右上の「診断」で原因を確認し、「再保存」を押してください。"); }
+      if (error) { error(request); }
+    });
   };
 
   DataService.readPdf = function (link, success, error) {
