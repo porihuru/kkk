@@ -236,7 +236,7 @@ UI更新
    - タイトル、注意事項、外部リンクは原本テンプレートから変更しない
 
 2. **リンク抽出**
-   - 相対URL変換: `/nafin/R8/` 以降を抽出 → `R8/be/xxx.pdf`
+   - 相対URL変換: `/nafin/R{年度}/` 以降を抽出 → `R8/be/xxx.pdf` など
    - ファイル名抽出: URL の最後の `/` 以降
    - `https://.pdf/` は自動除外（ダミーリンク）
    - 複数リンクは Sort 順で管理
@@ -453,7 +453,7 @@ CsvData.fromCsv("ID,Name\n1,A\n2,B", ["ID", "Name"])
 **ZIP 内部構造**
 ```
 nafin/
-├── R8kokoku.html       (生成HTML)
+├── R{年度}kokoku.html  (生成HTML。例：R8kokoku.html、R9kokoku.html)
 └── R8/be/
     ├── 080827-xxx.pdf  (アップロード済みPDF)
     ├── 080827-yyy.pdf
@@ -463,8 +463,8 @@ nafin/
 **使用方法**
 ```javascript
 ZipExport.create([
-  {name: "nafin/R8kokoku.html", content: htmlString},
-  {name: "nafin/R8/be/xxx.pdf", file: File},
+  {name: "nafin/R{年度}kokoku.html", content: htmlString},
+  {name: "nafin/R{年度}/be/xxx.pdf", file: File},
   ...
 ], function(blob){
   // blob をダウンロード
@@ -553,6 +553,7 @@ PDF_LIBRARY=nafin/R8/be
 | sort | Sort | 1行テキスト | 表示順の整数文字列（例：1） |
 | status | Status | 1行テキスト | 公告登録、内容修正、公告反映済など |
 | operationdate | OperationDate | 1行テキスト | 操作日時の表示用文字列 |
+| fiscalyear | FiscalYear | 1行テキスト | 入札日から算出した年度（R8、R9など） |
 | listkind | ListKind | 1行テキスト | planned＝公告予定、published＝公開公告 |
 | publicstate | PublicState | 1行テキスト | 公告掲載中／掲載終了／結果掲載中 |
 | verifiedat | VerifiedAt | 1行テキスト | HTML照合成功日時（ISO 8601） |
@@ -578,12 +579,12 @@ PDF_LIBRARY=nafin/R8/be
 
 | 内部名 | アプリ項目 | SharePoint列型 | 内容 |
 |---|---|---|---|
-| type | Type | 1行テキスト | date |
-| text | Text | 1行テキスト | 令和８年９月１３日現在などの基準日 |
+| type | Type | 1行テキスト | date／fiscal_year |
+| text | Text | 1行テキスト | 基準日、または公開年度（R8、R9など） |
 | url | URL | 1行テキスト | 現在は未使用、空欄 |
 | sort | Sort | 1行テキスト | 1 |
 
-設定リストには基準日の行を1件登録します。
+設定リストには、基準日の `type=date` と、管理者が選択した公開年度の `type=fiscal_year` を各1件登録します。公開年度の初期値は `config/config.txt` の `ACTIVE_FISCAL_YEAR` です。
 
 **SharePoint標準列（追加作成しない）**
 
@@ -603,9 +604,20 @@ PDF_LIBRARY=nafin/R8/be
 - 1行テキストの長さに収まる品名・ファイル名・URLで試験してください。長い値を扱う場合は列設計と入力制限の確認が必要です。
 - 既存公告の `listkind` が空欄だと予定側へ読み込まれます。公開公告は正本のHTMLと対応を確認して `published` と公開状態を設定してください。
 
+**年度切り替え**
+
+- 年度は入札日から算出します。R9.3.31はR8年度、R9.4.1はR9年度です。
+- 管理者画面の「公開年度」で、HTML・ZIP・公開HTML照合の対象年度を手動で切り替えます。切り替えは設定リストまたは設定CSVの `fiscal_year` 行へ保存します。
+- 一覧には複数年度を残し、年度列で所属を確認できます。3月中でも4月以降の入札公告は新年度となり、公開年度を翌年度へ切り替えて新年度HTMLを作成できます。
+- 公開HTML名は年度別です。例：`R8kokoku.html`、`R9kokoku.html`。工事・OP・公募もファイル名先頭の年度が切り替わります。
+- 結果は登録日にかかわらずコピー元公告の年度へ保存・掲載します。PDF保存先と掲載終了PDFも元公告年度のフォルダーを使用します。
+- HTML取込は、取り込んだ公告の入札日から対象年度を判断し、その年度の公告・リンクだけを置き換えます。他年度のデータとWEBサーバ上のPDFは削除しません。リンク先PDFが存在するかどうかは取込条件にしません。
+
 **接続設定**
 
 `config/config.txt` の `DATA_MODE=SHAREPOINT` と `WEB_ROOT` に接続先サイトを指定します。`SHAREPOINT_SITE_URL` は現コードでは使用しません。DB別の `DB_..._ANNOUNCEMENT_LIST`・`LINK_LIST`・`SETTINGS_LIST` が優先されます。PDF保存先の `DB_..._PDF_LIBRARY` は実環境の既存フォルダーに合わせてください（例：`/sites/finance/nafin/R8/be`）。公開サイトの `PUBLIC_SITE_URL` とは別の設定です。接続はSharePointにログインしたブラウザーのセッションとXMLHttpRequestによるREST APIを使用します。
+
+設定内の公開HTML名、`ENDED_PDF_URL`、`PDF_LIBRARY` に含まれる `R8` は年度パスのテンプレートとして扱われます。管理者がR9年度へ切り替えると、実際の出力名とPDF保存先ではR9へ置き換わります。
 
 ### 4.2.2 実環境での手動試験（未実施）
 

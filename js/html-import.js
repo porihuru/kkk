@@ -9,9 +9,9 @@
 
   function relativeUrl(value) {
     var url = String(value || "");
-    var marker = url.indexOf("/nafin/R8/");
-    if (marker >= 0) {
-      return url.substring(marker + 7);
+    var match = /\/nafin\/(R[1-9][0-9]*\/[^?#]*)/i.exec(url);
+    if (match) {
+      return match[1];
     }
     return url;
   }

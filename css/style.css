@@ -48,6 +48,17 @@ body {
   color: #ffffff;
 }
 
+.fiscal-year-status {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.year-column {
+  width: 58px;
+  white-space: nowrap;
+}
+
 .eyebrow {
   margin: 0;
   color: #d8a646;

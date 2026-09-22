@@ -91,7 +91,7 @@ test('Moving a new announcement waits for ZIP success before publication; ZIP fa
     HtmlExport:{create:()=>'<html></html>'}, ZipExport:{create:(files,ok,fail)=>{assert.equal(files[0].name,'nafin/R8open.html');zipSuccess=ok;zipFailure=fail;}} };
   vm.createContext(context);vm.runInContext(fs.readFileSync('js/publication-workflow.js','utf8'),context);
   vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', `global.testFlow = { move: moveAnnouncement, zip: exportZip, setup: function(item) { adminActive=true; filterAnnouncements=function(){}; plannedAnnouncements=[item]; plannedLinks=[{ID:'1',KokokuID:item.ID,Text:'PDF',URL:'R8/op/a.pdf'}]; }, items:function(){return allAnnouncements;} };`),context);
-  const item={ID:'1',Category:'NEW',Status:'公告登録'};
+  const item={ID:'1',Category:'NEW',Status:'公告登録',BidDate:'R8.10.1',FiscalYear:'R8'};
   context.testFlow.setup(item);
   context.testFlow.move.call({getAttribute:key=>key==='data-id'?'1':'planned'});
   assert.equal(item.Status,'公開待ち');assert.equal(item.ListKind,'published');
@@ -188,7 +188,7 @@ test('An ordinary user can save a virtual result task as the recorded result sub
   const task={ID:'result-10',WorkType:'RESULT',SourceAnnouncementID:'10',WorkflowKey:'RESULT:10',_virtualResult:true};
   const link={ID:'result-link-10-0',KokokuID:'result-10',Text:'米購入',URL:'R8/4/end.pdf',Type:'掲載終了',_virtualResult:true};
   context.testSaveResult.setup(source,task,link);assert.equal(context.testSaveResult.save(),false);
-  const data=context.testSaveResult.data();assert.equal(data.items.length,1);assert.equal(data.items[0].AuthorId,'user-b');assert.equal(data.items[0].ResultSubmittedById,'user-b');assert.equal(data.items[0].Status,'結果登録');
+  const data=context.testSaveResult.data();assert.equal(data.items.length,1);assert.equal(data.items[0].AuthorId,'user-b');assert.equal(data.items[0].ResultSubmittedById,'user-b');assert.equal(data.items[0].Status,'結果登録');assert.equal(data.items[0].FiscalYear,'R8');
   assert.equal(data.links[0].URL,'R8/be/081006-sap-n-bei_kk.pdf');assert.equal(data.links[0].Type,'結果');assert.equal(Object.keys(data.files).length,1);
 });
 
@@ -205,4 +205,19 @@ test('Publishing a saved result overwrites its source announcement and removes t
   const data=context.testPublishResult.data();
   assert.equal(source.Category,'結果');assert.equal(source.PublicState,'結果掲載中');assert.equal(source.Status,'公開待ち');assert.equal(source.ResultSubmittedById,'user-b');
   assert.equal(data.publishedLinks[0].URL,resultLink.URL);assert.equal(data.publishedLinks[0].Type,'結果');assert.equal(data.planned.length,0);assert.equal(data.plannedLinks.length,0);
+});
+
+test('Publication output contains only the administrator-selected fiscal year', () => {
+  const context={DataService:{getPublicationConfig:year=>({endedUrl:year+'/4/end.pdf'})}};
+  vm.createContext(context);vm.runInContext(fs.readFileSync('js/publication-workflow.js','utf8'),context);
+  vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', `global.testYear={setup:function(items,links,year){allAnnouncements=items;allLinks=links;activeFiscalYear=year;},data:publicationData};`),context);
+  const rows=[
+    {ID:'8',BidDate:'R9.3.31',FiscalYear:'R8',Category:'NEW',Status:'公告反映済',PublicState:'公告掲載中'},
+    {ID:'9',BidDate:'R9.4.1',FiscalYear:'R9',Category:'NEW',Status:'公告反映済',PublicState:'公告掲載中'}
+  ];
+  const links=[{ID:'18',KokokuID:'8',URL:'R8/be/a.pdf'},{ID:'19',KokokuID:'9',URL:'R9/be/b.pdf'}];
+  context.testYear.setup(rows,links,'R8');
+  assert.deepEqual(Array.from(context.testYear.data().announcements,item=>item.ID),['8']);
+  context.testYear.setup(rows,links,'R9');
+  assert.deepEqual(Array.from(context.testYear.data().announcements,item=>item.ID),['9']);
 });

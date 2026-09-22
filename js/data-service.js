@@ -6,6 +6,7 @@
   var currentDatabase = null;
   var selectedMode = "";
   var selectedDatabase = "";
+  var selectedFiscalYear = "";
   var currentUser = null;
 
   var DATABASE_KEYS = ["KOKOKU", "KOUJI", "OP", "KOBO"];
@@ -100,7 +101,7 @@
     var failed = false;
     var lists = [
       { key: "settings", name: config.SETTINGS_LIST, columns: ["Id", "Type", "Text", "URL", "Sort"] },
-      { key: "announcements", name: config.ANNOUNCEMENT_LIST, columns: ["Id", "AuthorId", "Author/Title", "Created", "Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate", "ListKind", "PublicState", "VerifiedAt", "WorkType", "SourceAnnouncementID", "WorkflowKey", "ResultSubmittedById", "ResultSubmittedByName", "ResultSubmittedAt"] },
+      { key: "announcements", name: config.ANNOUNCEMENT_LIST, columns: ["Id", "AuthorId", "Author/Title", "Created", "Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate", "FiscalYear", "ListKind", "PublicState", "VerifiedAt", "WorkType", "SourceAnnouncementID", "WorkflowKey", "ResultSubmittedById", "ResultSubmittedByName", "ResultSubmittedAt"] },
       { key: "links", name: config.LINK_LIST, columns: ["Id", "KokokuID", "Text", "FileName", "URL", "Type", "Sort"] }
     ];
     var i;
@@ -191,14 +192,44 @@
     return currentUser ? { id: currentUser.id, name: currentUser.name, isAdmin: currentUser.isAdmin } : null;
   };
 
+  function normalizedFiscalYear(value) {
+    var match = /^R([1-9][0-9]*)$/i.exec(String(value || "").replace(/^\s+|\s+$/g, ""));
+    return match ? "R" + Number(match[1]) : "";
+  }
+
+  function yearized(value, fiscalYear) {
+    var source = String(value || "");
+    var year = normalizedFiscalYear(fiscalYear || selectedFiscalYear || (currentConfig && currentConfig.ACTIVE_FISCAL_YEAR) || "R8");
+    if (!year) { return source; }
+    if (source.indexOf("{FY}") >= 0) { return source.replace(/\{FY\}/g, year); }
+    return source.replace(/R[1-9][0-9]*/i, year);
+  }
+
+  DataService.setFiscalYear = function (fiscalYear) {
+    var value = normalizedFiscalYear(fiscalYear);
+    if (!value) { return false; }
+    selectedFiscalYear = value;
+    return true;
+  };
+
+  DataService.getFiscalYear = function () {
+    return selectedFiscalYear || normalizedFiscalYear(currentConfig && currentConfig.ACTIVE_FISCAL_YEAR) || "R8";
+  };
+
   DataService.canManageAnnouncement = function (item, kind, adminActive) {
     if (!currentUser || !item) { return false; }
     if (adminActive && (!DataService.isSharePoint() || currentUser.isAdmin)) { return true; }
     return kind === "planned" && String(item.AuthorId || "") !== "" && String(item.AuthorId) === currentUser.id;
   };
 
-  DataService.getPublicationConfig = function () {
-    return { endedUrl: (currentConfig || {}).ENDED_PDF_URL || "R8/4/keisai-syuuryou.pdf", pdfRoot: String((currentDatabase || {}).pdfLibrary || "nafin/R8/be").replace(/^nafin\//, "") };
+  DataService.getPublicationConfig = function (fiscalYear) {
+    var year = normalizedFiscalYear(fiscalYear) || DataService.getFiscalYear();
+    return {
+      fiscalYear: year,
+      endedUrl: yearized((currentConfig || {}).ENDED_PDF_URL || "R8/4/keisai-syuuryou.pdf", year),
+      pdfRoot: yearized(String((currentDatabase || {}).pdfLibrary || "nafin/R8/be"), year).replace(/^nafin\//, ""),
+      pdfLibrary: yearized(String((currentDatabase || {}).pdfLibrary || (currentConfig || {}).PDF_LIBRARY || "nafin/R8/be"), year)
+    };
   };
 
   DataService.setDatabase = function (database) {
@@ -207,6 +238,7 @@
       return false;
     }
     selectedDatabase = database;
+    selectedFiscalYear = "";
     return true;
   };
 
@@ -234,21 +266,21 @@
     return /^https?:$/.test(anchor.protocol) ? anchor.href : "";
   }
 
-  DataService.getPublicHtmlPath = function () {
+  DataService.getPublicHtmlPath = function (fiscalYear) {
     var config = currentConfig || {};
     var pages = { KOKOKU: "R8kokoku.html", KOUJI: "R8koukoku_kouji.html", OP: "R8open.html", KOBO: "R8koubo.html" };
     var key = DataService.getDatabase();
-    return config["DB_" + key + "_PUBLIC_HTML"] || "nafin/" + pages[key];
+    return yearized(config["DB_" + key + "_PUBLIC_HTML"] || "nafin/" + pages[key], fiscalYear);
   };
 
-  DataService.getPublicHtmlFileName = function () {
-    return DataService.getPublicHtmlPath().split("/").pop();
+  DataService.getPublicHtmlFileName = function (fiscalYear) {
+    return DataService.getPublicHtmlPath(fiscalYear).split("/").pop();
   };
 
-  DataService.getPublicHtmlUrl = function () {
+  DataService.getPublicHtmlUrl = function (fiscalYear) {
     var config = currentConfig || {};
     var site = config.PUBLIC_SITE_URL || "https://www.mod.go.jp/gsdf/nae/fin/";
-    var page = DataService.getPublicHtmlPath();
+    var page = DataService.getPublicHtmlPath(fiscalYear);
     return resolvePublicUrl(page, site);
   };
 
@@ -272,7 +304,8 @@
     var root;
     var path;
     if (!DataService.isSharePoint()) { return DataService.getPublicLinkUrl(link); }
-    library = String((currentDatabase && currentDatabase.pdfLibrary) || (currentConfig && currentConfig.PDF_LIBRARY) || "").replace(/\/$/, "");
+    var yearMatch = /(?:^|\/)(R[1-9][0-9]*)(?:\/|$)/i.exec(link);
+    library = DataService.getPublicationConfig(yearMatch ? yearMatch[1] : DataService.getFiscalYear()).pdfLibrary.replace(/\/$/, "");
     root = global.SP && global.SP.webRoot ? global.SP.webRoot : String((currentConfig && currentConfig.WEB_ROOT) || "");
     if (!library || !name) { return ""; }
     try { name = decodeURIComponent(name); } catch (ignore) {}
@@ -311,8 +344,8 @@
     return currentConfig && String(currentConfig.DATA_MODE || "CSV").toUpperCase() === "SHAREPOINT";
   };
 
-  function pdfFolder() {
-    return String((currentDatabase && currentDatabase.pdfLibrary) || (currentConfig && currentConfig.PDF_LIBRARY) || "").replace(/^\s+|\s+$/g, "");
+  function pdfFolder(fiscalYear) {
+    return String(DataService.getPublicationConfig(fiscalYear).pdfLibrary || "").replace(/^\s+|\s+$/g, "");
   }
 
   function pdfUploadFailureDetail(request, folder, fileName, file) {
@@ -340,7 +373,7 @@
   }
 
   DataService.runPdfUploadDiagnostics = function () {
-    var folder = pdfFolder();
+    var folder = pdfFolder(DataService.getFiscalYear());
     var mode = DataService.getMode();
     if (global.Diagnostics) {
       global.Diagnostics.log("PDF-UPLOAD", "PDF保存設定を確認しています。", "Mode=" + mode + " / Database=" + DataService.getDatabase() + " / Folder=" + (folder || "未設定"));
@@ -370,8 +403,8 @@
     });
   };
 
-  DataService.uploadPdf = function (file, fileName, success, error, purpose) {
-    var folder = pdfFolder();
+  DataService.uploadPdf = function (file, fileName, success, error, purpose, fiscalYear) {
+    var folder = pdfFolder(fiscalYear || DataService.getFiscalYear());
     var label = purpose || "PDF";
     var valid = !!file && /\.pdf$/i.test(String(file.name || "")) && !(typeof file.size === "number" && file.size === 0);
     if (global.Diagnostics && global.Diagnostics.checkPdfFile) {

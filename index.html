@@ -5,7 +5,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>入札公告管理</title>
-  <link rel="stylesheet" href="css/style.css?v=20260921-3">
+  <link rel="stylesheet" href="css/style.css?v=20260922-3">
 </head>
 <body>
   <script type="text/javascript" src="js/error-notice.js?v=20260922-2"></script>
@@ -14,6 +14,7 @@
       <div class="header-copy">
         <p class="eyebrow">公告管理システム</p>
         <p id="data-status" class="status" aria-live="polite">データ接続を確認しています...</p>
+        <span id="active-fiscal-year" class="fiscal-year-status">公開年度：確認中</span>
         <a id="public-html-link" href="https://www.mod.go.jp/gsdf/nae/fin/nafin/R8kokoku.html" target="_blank" rel="noopener noreferrer">公開中のHTMLを確認</a>
         <span id="current-user"></span>
       </div>
@@ -27,6 +28,11 @@
             <option value="KOBO">公募DB</option>
           </select>
           <button id="database-apply" type="button" class="button button-secondary">切替</button>
+        </div>
+        <div class="data-mode-control admin-only-control hidden">
+          <label for="fiscal-year-input">公開年度</label>
+          <select id="fiscal-year-input"></select>
+          <button id="fiscal-year-apply" type="button" class="button button-secondary">年度切替</button>
         </div>
         <div class="data-mode-control">
           <label for="data-mode-input">データモード</label>
@@ -55,7 +61,7 @@
         <button id="import-file" type="button" class="button button-secondary">ファイルを解析</button>
       </div>
       <label for="html-source">HTMLソース貼り付け</label>
-      <textarea id="html-source" rows="5" placeholder="既存のR8kokoku.htmlのソースを貼り付け"></textarea>
+      <textarea id="html-source" rows="5" placeholder="既存の年度別HTMLのソースを貼り付け"></textarea>
       <button id="import-source" type="button" class="button button-secondary">ソースを解析</button>
       <p id="import-message" class="form-message" aria-live="polite"></p>
       <div id="import-settings" class="settings-preview"></div>
@@ -199,6 +205,7 @@
         <thead>
           <tr>
             <th scope="col" class="id-column">ID</th>
+            <th scope="col" class="year-column">年度</th>
             <th scope="col" class="action-column">操作</th>
             <th scope="col" class="operation-date-column">操作日時</th>
             <th scope="col">投稿者</th>
@@ -212,7 +219,7 @@
           </tr>
         </thead>
         <tbody id="planned-announcement-list">
-          <tr><td colspan="11" class="empty-row">読み込み中...</td></tr>
+          <tr><td colspan="12" class="empty-row">読み込み中...</td></tr>
         </tbody>
       </table>
     </section>
@@ -238,6 +245,7 @@
         <thead>
           <tr>
             <th scope="col" class="id-column">ID</th>
+            <th scope="col" class="year-column">年度</th>
             <th scope="col" class="action-column">操作</th>
             <th scope="col" class="operation-date-column">操作日時</th>
             <th scope="col" class="status-column">状態</th>
@@ -249,7 +257,7 @@
           </tr>
         </thead>
         <tbody id="announcement-list">
-          <tr><td colspan="9" class="empty-row">読み込み中...</td></tr>
+          <tr><td colspan="10" class="empty-row">読み込み中...</td></tr>
         </tbody>
       </table>
     </section>
@@ -271,14 +279,14 @@
   </main>
 
   <script type="text/javascript" src="js/csv-data.js?v=20260922-2"></script>
-  <script type="text/javascript" src="js/sp.js?v=20260922-2"></script>
-  <script type="text/javascript" src="js/data-service.js?v=20260922-2"></script>
-  <script type="text/javascript" src="js/html-export.js?v=20260830-2"></script>
-  <script type="text/javascript" src="js/html-import.js?v=20260829-2"></script>
+  <script type="text/javascript" src="js/sp.js?v=20260922-3"></script>
+  <script type="text/javascript" src="js/data-service.js?v=20260922-3"></script>
+  <script type="text/javascript" src="js/html-export.js?v=20260922-3"></script>
+  <script type="text/javascript" src="js/html-import.js?v=20260922-3"></script>
   <script type="text/javascript" src="js/zip-export.js?v=20260829-2"></script>
   <script type="text/javascript" src="jisyo/kuromoji.js"></script>
   <script type="text/javascript" src="js/filename-generator.js?v=20260911-1"></script>
-  <script type="text/javascript" src="js/publication-workflow.js?v=20260922-1"></script>
-  <script type="text/javascript" src="js/app.js?v=20260922-2"></script>
+  <script type="text/javascript" src="js/publication-workflow.js?v=20260922-3"></script>
+  <script type="text/javascript" src="js/app.js?v=20260922-3"></script>
 </body>
 </html>

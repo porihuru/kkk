@@ -6,6 +6,7 @@
   var allAnnouncements = [];
   var allLinks = [];
   var allSettings = [];
+  var activeFiscalYear = "R8";
   var deletedAnnouncements = [];
   var dateSortDescending = false;
   var preserveAnnouncementOrder = false;
@@ -53,6 +54,49 @@
 
   function byId(id) {
     return document.getElementById(id);
+  }
+
+  function fiscalYearForBidDate(value) {
+    return PublicationWorkflow.fiscalYear(value);
+  }
+
+  function itemFiscalYear(item) {
+    return PublicationWorkflow.itemFiscalYear(item);
+  }
+
+  function settingByType(type) {
+    var i;
+    for (i = 0; i < allSettings.length; i += 1) {
+      if (allSettings[i].Type === type) { return allSettings[i]; }
+    }
+    return null;
+  }
+
+  function fiscalYearNumber(value) {
+    var match = /^R([1-9][0-9]*)$/.exec(String(value || ""));
+    return match ? Number(match[1]) : 0;
+  }
+
+  function updateFiscalYearUi() {
+    var values = {};
+    var rows = plannedAnnouncements.concat(allAnnouncements);
+    var select = byId("fiscal-year-input");
+    var current = fiscalYearNumber(activeFiscalYear) || 8;
+    var years = [];
+    var i;
+    values["R" + Math.max(1, current - 1)] = true;
+    values["R" + current] = true;
+    values["R" + (current + 1)] = true;
+    for (i = 0; i < rows.length; i += 1) {
+      if (itemFiscalYear(rows[i])) { values[itemFiscalYear(rows[i])] = true; }
+    }
+    for (i in values) { if (values.hasOwnProperty(i)) { years.push(i); } }
+    years.sort(function (left, right) { return fiscalYearNumber(left) - fiscalYearNumber(right); });
+    select.innerHTML = years.map(function (year) { return '<option value="' + year + '">' + year + '年度</option>'; }).join("");
+    select.value = activeFiscalYear;
+    byId("active-fiscal-year").textContent = "公開年度：" + activeFiscalYear;
+    byId("public-html-link").href = DataService.getPublicHtmlUrl(activeFiscalYear);
+    byId("public-html-link").textContent = activeFiscalYear + "年度の公開HTMLを確認";
   }
 
   function padDatePart(value) {
@@ -163,6 +207,7 @@
     var title = pdfInput("link-text-input", rowIndex).value.trim();
     var garrison = byId("garrison-input").value;
     var sequence = (filenameGenerationSequences[rowIndex] || 0) + 1;
+    var fiscalYear = fiscalYearForBidDate(byId("date-input").value) || activeFiscalYear;
     filenameGenerationSequences[rowIndex] = sequence;
     if (rowIndex > 0 && !title) {
       pdfInput("link-url-input", rowIndex).value = "";
@@ -181,7 +226,7 @@
       if (sequence !== filenameGenerationSequences[rowIndex]) {
         return;
       }
-      pdfInput("link-url-input", rowIndex).value = result.url;
+      pdfInput("link-url-input", rowIndex).value = DataService.getPublicationConfig(fiscalYear).pdfRoot.replace(/^\/+|\/+$/g, "") + "/" + result.fileName;
     }, function () {
       if (sequence !== filenameGenerationSequences[rowIndex]) {
         return;
@@ -218,7 +263,9 @@
   }
 
   function resultPdfUrl(fileName) {
-    var root = DataService.getPublicationConfig().pdfRoot || "R8/be";
+    var source = announcementById(editingResultSourceId, allAnnouncements);
+    var fiscalYear = source ? itemFiscalYear(source) : fiscalYearForBidDate(byId("date-input").value);
+    var root = DataService.getPublicationConfig(fiscalYear).pdfRoot || "R8/be";
     return String(root).replace(/^\/+|\/+$/g, "") + "/" + fileName;
   }
 
@@ -250,7 +297,8 @@
     filenameGenerationSequences[rowIndex] = (filenameGenerationSequences[rowIndex] || 0) + 1;
     pdfInput("pdf-file-input", rowIndex).value = "";
     if (pdfInput("link-text-input", rowIndex).value) {
-      pdfInput("link-url-input", rowIndex).value = DataService.getPublicationConfig().endedUrl;
+      var source = announcementById(editingResultSourceId, allAnnouncements);
+      pdfInput("link-url-input", rowIndex).value = DataService.getPublicationConfig(source ? itemFiscalYear(source) : activeFiscalYear).endedUrl;
     }
     byId("form-message").textContent = "結果PDFを削除し、掲載終了PDFへ戻しました。";
   }
@@ -299,6 +347,7 @@
       item = items[i];
       item.Category = normalizeCategory(item.Category);
       item.Status = normalizeStatus(item.Status);
+      item.FiscalYear = fiscalYearForBidDate(item.BidDate) || item.FiscalYear || "";
       result.push(item);
     }
     return result;
@@ -333,7 +382,6 @@
   }
 
   function syncVirtualResultWork() {
-    var endedUrl = DataService.getPublicationConfig().endedUrl;
     var keptAnnouncements = [];
     var keptLinks = [];
     var i;
@@ -360,6 +408,7 @@
         Category: "結果",
         Garrison: source.Garrison,
         BidDate: source.BidDate,
+        FiscalYear: itemFiscalYear(source),
         Remarks: source.Remarks,
         Sort: String(plannedAnnouncements.length + 1),
         Status: "結果作業",
@@ -373,6 +422,7 @@
       plannedAnnouncements.push(task);
       sourceLinks = linksFor(source.ID, allLinks);
       for (j = 0; j < sourceLinks.length; j += 1) {
+        var endedUrl = DataService.getPublicationConfig(itemFiscalYear(source)).endedUrl;
         plannedLinks.push({ ID: "result-link-" + source.ID + "-" + j, KokokuID: task.ID, Text: sourceLinks[j].Text, FileName: fileNameFromUrl(endedUrl), URL: endedUrl, Type: "掲載終了", Sort: String(j + 1), _virtualResult: true });
       }
     }
@@ -394,8 +444,14 @@
     if (!active) { editingResultSourceId = ""; }
   }
 
-  function publicationData() {
-    return PublicationWorkflow.candidate(allAnnouncements, allLinks, DataService.getPublicationConfig().endedUrl);
+  function publicationData(fiscalYear) {
+    var year = fiscalYear || activeFiscalYear;
+    var announcements = allAnnouncements.filter(function (item) { return itemFiscalYear(item) === year; });
+    var ids = {};
+    var links;
+    announcements.forEach(function (item) { ids[String(item.ID)] = true; });
+    links = allLinks.filter(function (link) { return ids[String(link.KokokuID)] === true; });
+    return PublicationWorkflow.candidate(announcements, links, DataService.getPublicationConfig(year).endedUrl);
   }
 
   function saveWorkflowItem(item, patch, success, error) {
@@ -421,13 +477,14 @@
     HtmlImport.readFile(file, function (source) {
       var expected;
       try {
-        expected = publicationData();
+        expected = publicationData(activeFiscalYear);
         if (PublicationWorkflow.signature(expected, DataService.getPublicLinkUrl) !== PublicationWorkflow.signature(HtmlImport.parse(source), DataService.getPublicLinkUrl)) { fail("公開予定とHTMLが一致しません。反映済みにはしていません。"); return; }
       } catch (error) { fail(error.message); return; }
+      var verifiedItems = allAnnouncements.filter(function (item) { return itemFiscalYear(item) === activeFiscalYear; });
       var index = 0, timestamp = new Date().toISOString();
       function next() {
-        if (index === allAnnouncements.length) { workflowBusy = false; filterAnnouncements(); byId("published-check-message").textContent = "公開HTMLとの一致を確認しました。"; return; }
-        saveWorkflowItem(allAnnouncements[index++], { VerifiedAt: timestamp }, next, function () { fail(); });
+        if (index === verifiedItems.length) { workflowBusy = false; filterAnnouncements(); byId("published-check-message").textContent = activeFiscalYear + "年度の公開HTMLとの一致を確認しました。"; return; }
+        saveWorkflowItem(verifiedItems[index++], { VerifiedAt: timestamp }, next, function () { fail(); });
       }
       next();
     }, function () { fail("HTMLファイルを読み込めません。"); });
@@ -547,7 +604,7 @@
     }
     countElement.innerHTML = announcements.length + "件";
     if (!announcements.length) {
-      listElement.innerHTML = '<tr><td colspan="' + (kind === "planned" ? "11" : "9") + '" class="empty-row">該当する公告はありません。</td></tr>';
+      listElement.innerHTML = '<tr><td colspan="' + (kind === "planned" ? "12" : "10") + '" class="empty-row">該当する公告はありません。</td></tr>';
       return;
     }
 
@@ -555,7 +612,7 @@
       canOperate = DataService.canManageAnnouncement(announcements[i], kind, adminActive);
       links = linksFor(announcements[i].ID, state.links);
       if (kind === "published" && announcements[i].PublicState && announcements[i].PublicState !== "公告掲載中") {
-        try { links = PublicationWorkflow.candidate([announcements[i]], links, DataService.getPublicationConfig().endedUrl).links; } catch (error) { links = []; }
+        try { links = PublicationWorkflow.candidate([announcements[i]], links, DataService.getPublicationConfig(itemFiscalYear(announcements[i])).endedUrl).links; } catch (error) { links = []; }
       }
       categoryClass = announcements[i].Category === "NEW" ? "category" : "category category-change";
       upDisabled = i === 0 ? " disabled" : "";
@@ -566,6 +623,7 @@
         html.push("<span class=\"order-controls\"><button type=\"button\" class=\"button order-button order-up-button\" data-list=\"" + kind + "\" data-id=\"" + escapeHtml(announcements[i].ID) + "\" aria-label=\"上へ移動\"" + upDisabled + ">↑</button><button type=\"button\" class=\"button order-button order-down-button\" data-list=\"" + kind + "\" data-id=\"" + escapeHtml(announcements[i].ID) + "\" aria-label=\"下へ移動\"" + downDisabled + ">↓</button></span>");
       }
       html.push(escapeHtml(announcements[i].ID) + "</td>");
+      html.push("<td class=\"year-cell\">" + escapeHtml(itemFiscalYear(announcements[i]) || "不明") + "</td>");
       html.push("<td class=\"actions\">");
       if (canOperate && !isResultWork(announcements[i])) {
         html.push("<button type=\"button\" class=\"button button-small edit-button\" data-list=\"" + kind + "\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">修正</button> <button type=\"button\" class=\"button button-small button-danger delete-button\" data-list=\"" + kind + "\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">削除</button>");
@@ -773,7 +831,7 @@
     payload.ListKind = kind;
     links.forEach(function (link) {
       var file = selectedFiles[pdfKey(kind, link.ID)] || selectedPdfFiles[pdfKey(kind, link.ID)];
-      if (file) { tasks.push(function (ok, fail) { DataService.uploadPdf(file, link.FileName || fileNameFromUrl(link.URL), ok, fail, isResultWork(announcement) ? "結果PDF" : "公告PDF"); }); }
+      if (file) { tasks.push(function (ok, fail) { DataService.uploadPdf(file, link.FileName || fileNameFromUrl(link.URL), ok, fail, isResultWork(announcement) ? "結果PDF" : "公告PDF", itemFiscalYear(announcement)); }); }
     });
     tasks.push(function (ok, fail) {
       if (isNew && !announcement.Id) {
@@ -847,6 +905,7 @@
         Category: "結果",
         Garrison: source.Garrison,
         BidDate: source.BidDate,
+        FiscalYear: itemFiscalYear(source),
         Remarks: byId("remarks-input").value,
         Sort: "1",
         Status: "結果登録",
@@ -874,6 +933,7 @@
       task.Category = "結果";
       task.Garrison = source.Garrison;
       task.BidDate = source.BidDate;
+      task.FiscalYear = itemFiscalYear(source);
       task.Remarks = byId("remarks-input").value;
       task.Status = "結果登録";
       task.OperationDate = operationDateText();
@@ -971,6 +1031,7 @@
     announcement.Category = byId("category-input").value;
     announcement.Garrison = byId("garrison-input").value;
     announcement.BidDate = byId("date-input").value;
+    announcement.FiscalYear = fiscalYearForBidDate(announcement.BidDate);
     requestedStatus = byId("status-input").value;
     announcement.Status = requestedStatus;
     if (targetKind === "published") {
@@ -1280,8 +1341,8 @@
 
   function showError() {
     byId("data-status").innerHTML = "接続失敗。データを表示できませんが、アプリは継続しています。";
-    byId("planned-announcement-list").innerHTML = '<tr><td colspan="11" class="empty-row">データを表示できません。</td></tr>';
-    byId("announcement-list").innerHTML = '<tr><td colspan="9" class="empty-row">データを表示できません。</td></tr>';
+    byId("planned-announcement-list").innerHTML = '<tr><td colspan="12" class="empty-row">データを表示できません。</td></tr>';
+    byId("announcement-list").innerHTML = '<tr><td colspan="10" class="empty-row">データを表示できません。</td></tr>';
   }
 
   function applyLoadedData(data) {
@@ -1294,15 +1355,18 @@
     plannedAnnouncements.sort(function (a, b) { return Number(a.Sort || 0) - Number(b.Sort || 0); });
     allAnnouncements.sort(function (a, b) { return Number(a.Sort || 0) - Number(b.Sort || 0); });
     allLinks = data.publishedLinks || [];
-    allSettings = dateOnlySettings(data.settings || []);
+    allSettings = data.settings || [];
+    var yearSetting = settingByType("fiscal_year");
+    activeFiscalYear = yearSetting && /^R[1-9][0-9]*$/.test(yearSetting.Text || "") ? yearSetting.Text : DataService.getFiscalYear();
+    DataService.setFiscalYear(activeFiscalYear);
     byId("database-input").value = data.database || "KOKOKU";
-    byId("public-html-link").href = DataService.getPublicHtmlUrl();
+    updateFiscalYearUi();
     byId("data-mode-input").value = data.mode === "SHAREPOINT" ? "SHAREPOINT" : "CSV";
     var user = DataService.getCurrentUser();
     byId("current-user").textContent = (data.mode === "SHAREPOINT" ? "ログイン：" : "CSV仮ユーザー：") + (user ? user.name + "（" + user.id + "）" : "未確認");
     byId("database-apply").disabled = false;
     byId("data-mode-apply").disabled = false;
-    byId("data-status").innerHTML = (data.databaseName || "公告DB") + " / " + (data.mode === "SHAREPOINT" ? "SharePointリスト" : "CSVモード") + " / 読み込み完了";
+    byId("data-status").innerHTML = (data.databaseName || "公告DB") + " / " + activeFiscalYear + "年度 / " + (data.mode === "SHAREPOINT" ? "SharePointリスト" : "CSVモード") + " / 読み込み完了";
     filterAnnouncements();
     renderSettings();
   }
@@ -1340,6 +1404,45 @@
     }
     byId("data-status").innerHTML = "DBを切替中...";
     loadData();
+  }
+
+  function switchFiscalYear() {
+    var year;
+    var setting;
+    var isNew;
+    if (!adminActive || workflowBusy || pendingSave) { return; }
+    year = String(byId("fiscal-year-input").value || "");
+    if (!/^R[1-9][0-9]*$/.test(year)) {
+      byId("admin-message").textContent = "公開年度を選択してください。";
+      return;
+    }
+    setting = settingByType("fiscal_year");
+    isNew = !setting;
+    if (!setting) {
+      setting = { ID: String(allSettings.length + 1), Type: "fiscal_year", Text: year, URL: "", Sort: "2" };
+      allSettings.push(setting);
+    } else {
+      setting.Text = year;
+    }
+    activeFiscalYear = year;
+    DataService.setFiscalYear(year);
+    updateFiscalYearUi();
+    renderSettings();
+    byId("data-status").innerHTML = year + "年度を公開対象にしています。";
+    byId("admin-message").textContent = year + "年度へ切り替えました。";
+    if (!DataService.isSharePoint()) {
+      unsaved = true;
+      byId("admin-message").textContent += " 設定CSVも出力してください。";
+      return;
+    }
+    runSave([function (ok, fail) {
+      var payload = { Type: "fiscal_year", Text: year, URL: "", Sort: "2" };
+      if (isNew && !setting.Id) {
+        DataService.add("settings", payload, function (saved) { setting.Id = saved.Id || saved.ID; setting.ID = String(setting.Id); ok(); }, fail);
+      } else {
+        DataService.update("settings", setting.Id || setting.ID, payload, ok, fail);
+      }
+    }], function () { byId("admin-message").textContent = year + "年度への切り替えをSharePointへ保存しました。"; });
   }
 
   function setHidden(element, hidden) {
@@ -1459,16 +1562,16 @@
   }
 
   function previewPage() {
-    var data = publicationData();
-    if (HtmlExport.openPreview(data.announcements, data.links, allSettings)) {
-      byId("form-message").innerHTML = "公開ページプレビューを開きました。";
+    var data = publicationData(activeFiscalYear);
+    if (HtmlExport.openPreview(data.announcements, data.links, allSettings, activeFiscalYear)) {
+      byId("form-message").innerHTML = activeFiscalYear + "年度の公開ページプレビューを開きました。";
     }
   }
 
   function exportHtml() {
-    var data = publicationData();
-    var html = HtmlExport.create(data.announcements, data.links, allSettings);
-    var fileName = DataService.getPublicHtmlFileName();
+    var data = publicationData(activeFiscalYear);
+    var html = HtmlExport.create(data.announcements, data.links, allSettings, activeFiscalYear);
+    var fileName = DataService.getPublicHtmlFileName(activeFiscalYear);
     downloadBlob(fileName, new Blob([html], { type: "text/html;charset=utf-8" }));
     byId("form-message").textContent = fileName + "を出力しました。";
   }
@@ -1491,12 +1594,12 @@
     if (workflowBusy || pendingSave) { return; }
     byId("zip-message").textContent = "ZIPを作成しています...";
     var data;
-    try { data = publicationData(); }
+    try { data = publicationData(activeFiscalYear); }
     catch (error) { byId("zip-message").textContent = "ZIPを作成できません。" + error.message; return; }
-    var htmlPath = DataService.getPublicHtmlPath();
-    var zipName = DataService.getPublicHtmlFileName().replace(/\.html$/i, "") + (fullData ? "_full.zip" : "_update.zip");
+    var htmlPath = DataService.getPublicHtmlPath(activeFiscalYear);
+    var zipName = DataService.getPublicHtmlFileName(activeFiscalYear).replace(/\.html$/i, "") + (fullData ? "_full.zip" : "_update.zip");
     var html;
-    try { html = HtmlExport.create(data.announcements, data.links, allSettings); }
+    try { html = HtmlExport.create(data.announcements, data.links, allSettings, activeFiscalYear); }
     catch (error) { byId("zip-message").textContent = "ZIPを作成できません。" + error.message; return; }
     var files = [{ name: htmlPath, content: html }];
     var i;
@@ -1508,7 +1611,7 @@
     var pdfReadFailed = false;
     function addPdf(link, file) {
       fileName = link.FileName || fileNameFromUrl(link.URL) || file.name;
-      zipPath = link.URL ? (link.URL.indexOf("nafin/") === 0 ? link.URL : "nafin/" + link.URL) : "nafin/R8/be/" + fileName;
+      zipPath = link.URL ? (link.URL.indexOf("nafin/") === 0 ? link.URL : "nafin/" + link.URL) : "nafin/" + DataService.getPublicationConfig(activeFiscalYear).pdfRoot + "/" + fileName;
       files.push({ name: zipPath.replace(/\\/g, "/"), file: file });
     }
     function createZip() {
@@ -1527,10 +1630,10 @@
       }, function () { workflowBusy = false; byId("zip-message").textContent = "PDFの読込に失敗しました。ZIPは作成していません。"; });
     }
     workflowBusy = true;
-    for (i = 0; i < allLinks.length; i += 1) {
-      link = allLinks[i];
+    for (i = 0; i < data.links.length; i += 1) {
+      link = data.links[i];
       file = selectedPdfFiles[pdfKey("published", link.ID)];
-      if (file) {
+      if (file && link.Type !== "掲載終了") {
         addPdf(link, file);
       } else if (DataService.isSharePoint() && link.Type === "結果") {
         pendingPdfReads += 1;
@@ -1557,13 +1660,50 @@
   }
 
   function replaceImportedData(data) {
-    var previous = allAnnouncements.slice(), previousLinks = allLinks.slice(), imported = normalizeAnnouncements(data.announcements), newLinks = data.links;
+    var imported = normalizeAnnouncements(data.announcements);
+    var importYears = {};
+    var importYear;
+    var previous;
+    var previousIds = {};
+    var previousLinks;
+    var retainedAnnouncements;
+    var retainedLinks;
+    var newLinks = data.links;
+    var idMap = {};
+    var nextImportedId;
+    var importedDateSettings = dateOnlySettings(data.settings || []);
+    var currentDateSetting = settingByType("date");
+    var retainedSettings = allSettings.filter(function (item) { return item.Type !== "date"; });
+    var mergedSettings;
     var tasks = [];
+    var i;
+    imported.forEach(function (item) { if (itemFiscalYear(item)) { importYears[itemFiscalYear(item)] = true; } });
+    var yearKeys = Object.keys(importYears);
+    if (yearKeys.length > 1) { throw new Error("複数年度の公告が含まれています。年度別HTMLを選択してください。"); }
+    importYear = yearKeys.length ? yearKeys[0] : activeFiscalYear;
+    previous = allAnnouncements.filter(function (item) { return itemFiscalYear(item) === importYear; });
+    previous.forEach(function (item) { previousIds[String(item.ID)] = true; });
+    previousLinks = allLinks.filter(function (link) { return previousIds[String(link.KokokuID)] === true; });
+    retainedAnnouncements = allAnnouncements.filter(function (item) { return itemFiscalYear(item) !== importYear; });
+    retainedLinks = allLinks.filter(function (link) { return previousIds[String(link.KokokuID)] !== true; });
+    nextImportedId = parseInt(nextId(retainedAnnouncements), 10) || 1;
+    var nextImportedLinkId = parseInt(nextLinkId(retainedLinks), 10) || 1;
+    for (i = 0; i < imported.length; i += 1) {
+      idMap[String(imported[i].ID)] = String(nextImportedId + i);
+      imported[i].ID = String(nextImportedId + i);
+      imported[i].FiscalYear = importYear;
+    }
+    for (i = 0; i < newLinks.length; i += 1) {
+      newLinks[i].KokokuID = idMap[String(newLinks[i].KokokuID)] || newLinks[i].KokokuID;
+      newLinks[i].ID = String(nextImportedLinkId + i);
+    }
+    mergedSettings = (importedDateSettings.length ? importedDateSettings : (currentDateSetting ? [currentDateSetting] : [])).concat(retainedSettings);
     function applied() {
-      preserveAnnouncementOrder = true; allAnnouncements = imported; allLinks = newLinks;
-      allSettings = dateOnlySettings(data.settings || []); unsaved = !DataService.isSharePoint();
+      preserveAnnouncementOrder = true; allAnnouncements = retainedAnnouncements.concat(imported); allLinks = retainedLinks.concat(newLinks);
+      allSettings = mergedSettings; unsaved = !DataService.isSharePoint();
       clearForm(); filterAnnouncements(); renderSettings();
-      byId("import-message").textContent = "HTMLを取り込みました。" + (DataService.isSharePoint() ? "SharePointへの保存が完了しました。" : "CSVを出力してください。");
+      updateFiscalYearUi();
+      byId("import-message").textContent = importYear + "年度のHTMLを取り込みました。リンク先PDFの存在確認は行っていません。" + (DataService.isSharePoint() ? "SharePointへの保存が完了しました。" : "CSVを出力してください。");
     }
     imported.forEach(function (item) { item.ListKind = "published"; item.PublicState = item.Category === "結果" ? "結果掲載中" : "公告掲載中"; });
     if (!DataService.isSharePoint()) { applied(); return; }
@@ -1578,14 +1718,14 @@
     });
     previousLinks.forEach(function (link) { tasks.push(function (ok, fail) { DataService.remove("links", link.Id || link.ID, ok, fail); }); });
     previous.forEach(function (item) { tasks.push(function (ok, fail) { DataService.remove("announcements", item.Id || item.ID, ok, fail); }); });
-    var settings = dateOnlySettings(data.settings || []), oldSetting = allSettings[0];
-    if (settings.length) { tasks.push(function (ok, fail) {
-      var item = settings[0], payload = { Type: "date", Text: item.Text, URL: "", Sort: "1" };
+    var oldSetting = currentDateSetting;
+    if (importedDateSettings.length) { tasks.push(function (ok, fail) {
+      var item = importedDateSettings[0], payload = { Type: "date", Text: item.Text, URL: "", Sort: "1" };
       if (oldSetting) { item.Id = oldSetting.Id || oldSetting.ID; DataService.update("settings", item.Id, payload, ok, fail); }
       else { DataService.add("settings", payload, function (saved) { item.Id = saved.Id; item.ID = String(saved.Id); ok(); }, fail); }
     }); }
-    data.settings = settings;
-    window.alert("取り込んだHTMLはSharePointへ未保存です。公告とリンクを置き換えて保存します。");
+    data.settings = mergedSettings;
+    window.alert("取り込んだ" + importYear + "年度HTMLはSharePointへ未保存です。同年度の公告とリンクを置き換えて保存します。PDFファイルは削除しません。");
     runSave(tasks, applied);
   }
 
@@ -1597,21 +1737,24 @@
 
   function renderSettings() {
     var html = [];
-    if (!allSettings.length) {
+    var dateSetting = settingByType("date");
+    if (!dateSetting) {
       byId("import-settings").innerHTML = "<strong>基準日</strong> 未設定";
       byId("setting-date").value = "";
       return;
     }
-    html.push("<strong>基準日</strong> " + escapeHtml(allSettings[0].Text));
+    html.push("<strong>公開年度</strong> " + escapeHtml(activeFiscalYear) + "年度　");
+    html.push("<strong>基準日</strong> " + escapeHtml(dateSetting.Text));
     byId("import-settings").innerHTML = html.join("");
-    byId("setting-date").value = allSettings[0].Text;
+    byId("setting-date").value = dateSetting.Text;
   }
 
   function addSetting() {
     if (workflowBusy || pendingSave) { return; }
     unsaved = true;
     var text = byId("setting-date").value;
-    var editIndex = allSettings.length ? 0 : -1;
+    var currentDateSetting = settingByType("date");
+    var editIndex = currentDateSetting ? allSettings.indexOf(currentDateSetting) : -1;
     var setting;
     if (!text) {
       byId("import-message").innerHTML = "基準日を入力してください。";
@@ -1650,7 +1793,7 @@
     try {
       replaceImportedData(HtmlImport.parse(source));
     } catch (e) {
-      byId("import-message").innerHTML = "HTMLを解析できませんでした。公告一覧表の構造を確認してください。";
+      byId("import-message").textContent = "HTMLを取り込めませんでした。" + (e && e.message ? e.message : "公告一覧表の構造を確認してください。");
     }
   }
 
@@ -1668,7 +1811,7 @@
       try {
         replaceImportedData(HtmlImport.parse(source));
       } catch (e) {
-        byId("import-message").innerHTML = "HTMLを解析できませんでした。公告一覧表の構造を確認してください。";
+        byId("import-message").textContent = "HTMLを取り込めませんでした。" + (e && e.message ? e.message : "公告一覧表の構造を確認してください。");
       }
     }, function () {
       byId("import-message").innerHTML = "HTMLファイルを読み込めませんでした。";
@@ -1689,7 +1832,7 @@
       }
     };
     function markEdited(event) {
-      if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName) && event.target.id !== "search-input" && event.target.id !== "database-input" && event.target.id !== "data-mode-input") { unsaved = true; }
+      if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName) && event.target.id !== "search-input" && event.target.id !== "database-input" && event.target.id !== "data-mode-input" && event.target.id !== "fiscal-year-input") { unsaved = true; }
     }
     document.addEventListener("change", markEdited);
     document.addEventListener("input", markEdited);
@@ -1724,6 +1867,7 @@
     byId("admin-logout").onclick = deactivateAdmin;
     byId("database-apply").onclick = switchDatabase;
     byId("data-mode-apply").onclick = switchDataMode;
+    byId("fiscal-year-apply").onclick = switchFiscalYear;
     byId("show-deleted").onclick = toggleDeletedList;
     byId("close-deleted").onclick = function () { setHidden(byId("deleted-list-panel"), true); };
     byId("admin-access-form").onsubmit = function (event) {

@@ -1,8 +1,25 @@
 (function (global) {
   "use strict";
   var W = {};
-  W.fields = ["ListKind", "PublicState", "VerifiedAt", "WorkType", "SourceAnnouncementID", "WorkflowKey", "ResultSubmittedById", "ResultSubmittedByName", "ResultSubmittedAt"];
+  W.fields = ["FiscalYear", "ListKind", "PublicState", "VerifiedAt", "WorkType", "SourceAnnouncementID", "WorkflowKey", "ResultSubmittedById", "ResultSubmittedByName", "ResultSubmittedAt"];
   W.copy = function (item) { var result = {}, key; for (key in item) { if (item.hasOwnProperty(key)) { result[key] = item[key]; } } return result; };
+  W.fiscalYear = function (bidDate) {
+    var match = /^R(\d+)\.(\d+)\.(\d+)$/.exec(String(bidDate || ""));
+    var reiwaYear;
+    var month;
+    var day;
+    var westernYear;
+    var date;
+    if (!match) { return ""; }
+    reiwaYear = Number(match[1]);
+    month = Number(match[2]);
+    day = Number(match[3]);
+    westernYear = 2018 + reiwaYear;
+    date = new Date(Date.UTC(westernYear, month - 1, day));
+    if (date.getUTCFullYear() !== westernYear || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) { return ""; }
+    return "R" + (month < 4 ? reiwaYear - 1 : reiwaYear);
+  };
+  W.itemFiscalYear = function (item) { return W.fiscalYear(item && item.BidDate) || String(item && item.FiscalYear || ""); };
   W.state = function (item) { return item.PublicState || (item.Category === "結果" ? "結果掲載中" : "公告掲載中"); };
   W.due = function (item, now) {
     var m = /^R(\d+)\.(\d+)\.(\d+)$/.exec(item.BidDate || "");

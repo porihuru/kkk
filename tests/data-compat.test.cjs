@@ -27,6 +27,10 @@ test('All four databases export configured filenames with planned/public separat
       const configured=text.match(new RegExp('^DB_'+key+'_'+suffix+'=(.+)$','m'))[1].trim();
       assert.equal(context.DataService.getCsvFileName(kind), configured.split('/').pop());
     }
+    assert(context.DataService.setFiscalYear('R9'));
+    assert.match(context.DataService.getPublicHtmlFileName('R9'),/^R9/);
+    assert.match(context.DataService.getPublicationConfig('R9').pdfRoot,/^R9\//);
+    assert.match(context.DataService.getPublicationConfig('R8').endedUrl,/^R8\//);
   }
 });
 

@@ -1,4 +1,4 @@
-﻿ID,AuthorId,AuthorName,Created,Category,Garrison,BidDate,Remarks,Sort,Status,OperationDate,ListKind,PublicState,VerifiedAt,WorkType,SourceAnnouncementID,WorkflowKey,ResultSubmittedById,ResultSubmittedByName,ResultSubmittedAt
-201,csv-user-1,開発ユーザー1,2026-09-21T00:00:00Z,NEW,札幌,R8.10.10,【ダミー】庁舎屋根防水改修工事／新規登録・本リストへの登録確認,1,公告登録,,planned,,,,,,,,
-202,csv-user-1,開発ユーザー1,2026-09-21T01:00:00Z,NEW,旭川,R8.10.11,【ダミー】宿舎外壁補修工事／内容修正後・本リストへの登録確認,2,内容修正,,planned,,,,,,,,
-203,csv-user-2,開発ユーザー2,2026-09-21T02:00:00Z,NEW,帯広,R8.10.12,【ダミー】構内舗装補修工事／別投稿者・編集権限の確認,3,公告登録,,planned,,,,,,,,
+﻿ID,AuthorId,AuthorName,Created,Category,Garrison,BidDate,Remarks,Sort,Status,OperationDate,FiscalYear,ListKind,PublicState,VerifiedAt,WorkType,SourceAnnouncementID,WorkflowKey,ResultSubmittedById,ResultSubmittedByName,ResultSubmittedAt
+201,csv-user-1,開発ユーザー1,2026-09-21T00:00:00Z,NEW,札幌,R8.10.10,【ダミー】庁舎屋根防水改修工事／新規登録・本リストへの登録確認,1,公告登録,,R8,planned,,,,,,,,
+202,csv-user-1,開発ユーザー1,2026-09-21T01:00:00Z,NEW,旭川,R8.10.11,【ダミー】宿舎外壁補修工事／内容修正後・本リストへの登録確認,2,内容修正,,R8,planned,,,,,,,,
+203,csv-user-2,開発ユーザー2,2026-09-21T02:00:00Z,NEW,帯広,R8.10.12,【ダミー】構内舗装補修工事／別投稿者・編集権限の確認,3,公告登録,,R8,planned,,,,,,,,

@@ -9,6 +9,7 @@
     "ListKind": "listkind",
     "PublicState": "publicstate",
     "VerifiedAt": "verifiedat",
+    "FiscalYear": "fiscalyear",
     "WorkType": "worktype",
     "SourceAnnouncementID": "sourceannouncementid",
     "WorkflowKey": "workflowkey",

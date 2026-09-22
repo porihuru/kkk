@@ -87,6 +87,14 @@
     return source.replace(/\s+onclick\s*=\s*["']sortByDate\(\)["']/gi, "");
   }
 
+  function replaceFiscalYear(source, fiscalYear) {
+    var match = /^R([1-9][0-9]*)$/.exec(String(fiscalYear || ""));
+    if (!match) { return source; }
+    source = source.replace(/R[1-9][0-9]*(?=(?:kokoku|koukoku_kouji|open|koubo)\.html)/gi, fiscalYear);
+    source = source.replace(/R[1-9][0-9]*年度/g, fiscalYear + "年度");
+    return source.replace(/令和[0-9０-９]+年度/g, "令和" + match[1] + "年度");
+  }
+
   HtmlExport.loadTemplate = function (success, error) {
     var request = new XMLHttpRequest();
     request.open("GET", "config/koukoku.html", true);
@@ -112,7 +120,7 @@
     request.send(null);
   };
 
-  HtmlExport.create = function (announcements, links, settings) {
+  HtmlExport.create = function (announcements, links, settings, fiscalYear) {
     var rows = [];
     var currentDate;
     var i;
@@ -136,10 +144,11 @@
     }
     source = disableDateSorting(templateSource);
     source = replaceDate(source, currentDate);
+    source = replaceFiscalYear(source, fiscalYear);
     return replaceRows(source, rows.join(""));
   };
 
-  HtmlExport.openPreview = function (announcements, links, settings) {
+  HtmlExport.openPreview = function (announcements, links, settings, fiscalYear) {
     var preview = window.open("", "kokokuPreview");
     if (!preview) {
       if (global.Diagnostics) {
@@ -149,7 +158,7 @@
       return false;
     }
     preview.document.open();
-    preview.document.write(HtmlExport.create(announcements, links, settings));
+    preview.document.write(HtmlExport.create(announcements, links, settings, fiscalYear));
     preview.document.close();
     return true;
   };
