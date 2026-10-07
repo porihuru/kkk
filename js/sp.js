@@ -21,7 +21,7 @@
     "Type": "type",
     "Text": "text",
     "URL": "url",
-    "Sort": "sort",
+    "Sort": "sortorder",
     "Status": "status",
     "OperationDate": "operationdate",
     "Category": "category",

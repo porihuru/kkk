@@ -44,11 +44,11 @@ function sharePointApi(failSecondPage) {
       calls.push({ method: this.method, url: this.url, body });
       let data;
       this.status = 200;
-      if (this.url.includes('/fields?')) data = { results: ['Id', 'operationdate', 'kokokuid', 'sort'].map(name => ({ Title: name, InternalName: name, TypeAsString: 'Text' })) };
+      if (this.url.includes('/fields?')) data = { results: ['Id', 'operationdate', 'kokokuid', 'sortorder'].map(name => ({ Title: name, InternalName: name, TypeAsString: 'Text' })) };
       else if (this.url.includes('page=2')) {
         if (failSecondPage) this.status = 500;
-        data = { results: [{ Id: 42, operationdate: '2026/09/13 10:30', kokokuid: 7, sort: 2, Author: { Title: '投稿者A' }, Created: '2026-09-12T23:30:00Z' }] };
-      } else data = { results: [{ Id: 41, operationdate: '2026/09/12 10:30', kokokuid: 7, sort: 1 }], __next: '/sites/finance/_api/page=2' };
+        data = { results: [{ Id: 42, operationdate: '2026/09/13 10:30', kokokuid: 7, sortorder: 2, Author: { Title: '投稿者A' }, Created: '2026-09-12T23:30:00Z' }] };
+      } else data = { results: [{ Id: 41, operationdate: '2026/09/12 10:30', kokokuid: 7, sortorder: 1 }], __next: '/sites/finance/_api/page=2' };
       this.responseText = JSON.stringify({ d: data });
       this.readyState = 4;
       this.onreadystatechange();
@@ -59,6 +59,44 @@ function sharePointApi(failSecondPage) {
   context.SP.init('/sites/finance');
   return { api: context.SP, calls };
 }
+
+test('All 12 SharePoint lists read, add and update sortorder', () => {
+  const calls = [];
+  const context = {};
+  context.XMLHttpRequest = function () {
+    this.open = (method, url) => { this.method = method; this.url = url; };
+    this.setRequestHeader = () => {};
+    this.getResponseHeader = () => '"2"';
+    this.send = body => {
+      calls.push({ url: this.url, body: body && JSON.parse(body) });
+      let data;
+      if (this.url.includes('/fields?')) data = { results: ['Id', 'sortorder'].map(name => ({ Title: name, InternalName: name })) };
+      else if (this.url.includes('contextinfo')) data = { GetContextWebInformation: { FormDigestValue: 'test', FormDigestTimeoutSeconds: 1800 } };
+      else if (this.url.includes('ListItemEntityTypeFullName')) data = { ListItemEntityTypeFullName: 'SP.Data.TestListItem' };
+      else if (this.method === 'GET') data = { results: [{ Id: 1, sortorder: '3', __metadata: { etag: '"1"' } }] };
+      else data = { Id: 2, sortorder: '4', __metadata: { etag: '"1"' } };
+      this.status = 200; this.responseText = JSON.stringify({ d: data }); this.readyState = 4; this.onreadystatechange();
+    };
+  };
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync('js/sp.js', 'utf8'), context);
+  context.SP.init('/sites/test');
+  let completed = 0;
+  for (const db of ['kokoku', 'kouji', 'op', 'kobo']) {
+    for (const suffix of ['', '_links', '_settings']) {
+      const list = db + suffix;
+      context.SP.load(list, ['Id', 'Sort'], rows => { assert.equal(rows[0].Sort, '3'); completed++; }, assert.fail);
+      assert.match(decodeURIComponent(calls.at(-1).url), /\$select=Id,sortorder$/);
+      context.SP.add(list, { Sort: '4' }, row => { assert.equal(row.Sort, '4'); completed++; }, assert.fail);
+      assert.equal(calls.at(-1).body.sortorder, '4');
+      assert.equal(calls.at(-1).body.sort, undefined);
+      context.SP.update(list, 1, { Sort: '5' }, () => { completed++; }, assert.fail);
+      assert.equal(calls.at(-1).body.sortorder, '5');
+      assert.equal(calls.at(-1).body.Sort, undefined);
+    }
+  }
+  assert.equal(completed, 36);
+});
 
 test('CSV export/import retains IDs, BOM, commas, quotes, Japanese, newlines and empty fields', () => {
   const csv = csvApi();
@@ -72,6 +110,9 @@ test('SharePoint maps OperationDate and IDs on every response page', () => {
   let loaded;
   api.load('kokoku_links', ['Id', 'OperationDate', 'KokokuID', 'Sort', 'Author/Title', 'Created'], rows => { loaded = rows; }, () => assert.fail('unexpected error'));
   assert.equal(loaded.length, 2);
+  assert.equal(loaded[0].Sort, 1);
+  assert.equal(loaded[1].Sort, 2);
+  assert(decodeURIComponent(calls[1].url).includes(",sortorder,"));
   assert.equal(loaded[1].ID, 42);
   assert.equal(loaded[1].OperationDate, '2026/09/13 10:30');
   assert.equal(loaded[1].AuthorName, '投稿者A');
