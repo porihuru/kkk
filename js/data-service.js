@@ -224,10 +224,14 @@
 
   DataService.getPublicationConfig = function (fiscalYear) {
     var year = normalizedFiscalYear(fiscalYear) || DataService.getFiscalYear();
+    var config = currentConfig || {};
+    var key = DataService.getDatabase();
+    var folders = { KOKOKU: "be", KOUJI: "kouji", OP: "op", KOBO: "kobo" };
+    var publicRoot = config["DB_" + key + "_PDF_ROOT"] || (key === "KOKOKU" && config.PDF_ROOT) || "nafin/R8/" + folders[key];
     return {
       fiscalYear: year,
       endedUrl: yearized((currentConfig || {}).ENDED_PDF_URL || "R8/4/keisai-syuuryou.pdf", year),
-      pdfRoot: yearized(String((currentDatabase || {}).pdfLibrary || "nafin/R8/be"), year).replace(/^nafin\//, ""),
+      pdfRoot: yearized(String(publicRoot), year).replace(/^\/?nafin\//, ""),
       pdfLibrary: yearized(String((currentDatabase || {}).pdfLibrary || (currentConfig || {}).PDF_LIBRARY || "nafin/R8/be"), year)
     };
   };

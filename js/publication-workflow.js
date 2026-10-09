@@ -31,6 +31,11 @@
   };
   W.candidate = function (announcements, links, endedUrl) {
     var result = { announcements: announcements.map(W.copy), links: links.map(W.copy) }, i, j, target;
+    result.links.forEach(function (link) {
+      // Legacy stored links may contain the SharePoint library path. Public HTML is under nafin/.
+      var match = /(?:^|\/)nafin\/(R[1-9][0-9]*\/[^?#]*)(?:[?#].*)?$/i.exec(String(link.URL || "").replace(/\\/g, "/"));
+      if (match) { link.URL = match[1]; }
+    });
     // Original links stay in the stored data. Only the publication copy is replaced.
     for (i = 0; i < result.announcements.length; i += 1) {
       target = result.announcements[i]; target.Status = target.Category === "結果" ? "結果反映済" : "公告反映済";

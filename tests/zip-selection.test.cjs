@@ -12,10 +12,11 @@ function fixture(full, failId) {
     {ID:'4',Status:'公開待ち',PublicState:'掲載終了'}
   ].map(x=>Object.assign({FiscalYear:'R8',BidDate:'R8.10.1'},x));
   const links = rows.map(x=>({ID:x.ID,KokokuID:x.ID,URL:'R8/be/'+x.ID+'.pdf',FileName:x.ID+'.pdf',Type:x.Category==='結果'?'結果':'公告'}));
+  links[1].URL='/na/na/NAFin-WorkingData/koukoku/Documents/nafin/R8/be/2.pdf';
   const context = {document:{getElementById:id=>elements[id]||(elements[id]={})},
     DataService:{isSharePoint:()=>true,getPublicationConfig:()=>({endedUrl:'R8/4/end.pdf'}),getPublicHtmlPath:()=> 'nafin/R8.html',getPublicHtmlFileName:()=> 'R8.html',
       readPdf:(link,ok,fail)=>{reads.push(link.ID);if(link.ID===failId)fail();else ok({});}},
-    HtmlExport:{create:(items)=>{assert.equal(items.length,4);return 'all announcements';}},
+    HtmlExport:{create:(items, publicLinks)=>{assert.equal(items.length,4);assert.equal(publicLinks.find(x=>x.ID==='2').URL,'R8/be/2.pdf');return 'all announcements';}},
     ZipExport:{create:(files,ok)=>{archives.push(files);ok({});}}
   };
   vm.createContext(context);
@@ -23,6 +24,7 @@ function fixture(full, failId) {
   vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', `downloadBlob=function(){};filterAnnouncements=function(){};saveWorkflowItem=function(item,patch,ok){global.patches.push(item.ID);ok();};global.testZip=function(rows,links,full){activeFiscalYear="R8";allAnnouncements=rows;allLinks=links;exportZip(full);};`),context);
   context.patches=patches;
   context.testZip(rows,links,full);
+  assert.equal(links[1].URL,'/na/na/NAFin-WorkingData/koukoku/Documents/nafin/R8/be/2.pdf');
   return {reads,archives,patches,elements};
 }
 test('update ZIP skips historical result PDFs, reads pending announcement and result PDFs, and creates once',()=>{

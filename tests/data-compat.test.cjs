@@ -13,8 +13,7 @@ function csvApi() {
 
 test('All four databases export configured filenames with planned/public separation', () => {
   const text = fs.readFileSync('config/config.txt', 'utf8')
-    .replace(/^DATA_MODE=.*$/m, 'DATA_MODE=CSV')
-    .replace(/^(.*PDF_LIBRARY)=.*\/nafin\//gm, '$1=nafin/');
+    .replace(/^DATA_MODE=.*$/m, 'DATA_MODE=CSV');
   const context = { CsvData: { load: success => success({}) } };
   context.XMLHttpRequest = function () {
     this.open = () => {};
@@ -31,7 +30,8 @@ test('All four databases export configured filenames with planned/public separat
     }
     assert(context.DataService.setFiscalYear('R9'));
     assert.match(context.DataService.getPublicHtmlFileName('R9'),/^R9/);
-    assert.match(context.DataService.getPublicationConfig('R9').pdfRoot,/^R9\//);
+    assert.equal(context.DataService.getPublicationConfig('R9').pdfRoot, 'R9/'+({KOKOKU:'be',KOUJI:'kouji',OP:'op',KOBO:'kobo'}[key]));
+    assert.match(context.DataService.getPublicationConfig('R9').pdfLibrary,/^\/na\/na\/.*Documents\/nafin\/R9\//);
     assert.match(context.DataService.getPublicationConfig('R8').endedUrl,/^R8\//);
   }
 });
