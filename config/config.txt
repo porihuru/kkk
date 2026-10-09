@@ -1,12 +1,12 @@
 # 入札公告管理アプリ設定
-DATA_MODE=CSV
+DATA_MODE=SHAREPOINT
 # CSV開発用の仮ユーザー。SharePointではログインユーザーを使用する。
 CSV_USER_ID=csv-user-1
 CSV_USER_NAME=開発ユーザー1
 DEFAULT_DATABASE=KOKOKU
 # 年度を判定できない場合だけ使う予備値。通常は日本時間のカレンダーから自動決定する。
 ACTIVE_FISCAL_YEAR=R8
-WEB_ROOT=AUTO
+WEB_ROOT=/na/na/NAFin-WorkingData/koukoku
 # 以下のパス内のR8は年度テンプレート。上部メニューで選択した作業年度へ置換する。
 # 正本の公開サイト。WEB_ROOTはSharePoint接続用のため別に管理する。
 PUBLIC_SITE_URL=https://www.mod.go.jp/gsdf/nae/fin/
@@ -17,7 +17,7 @@ HTML_FILE=R8kokoku.html
 PUBLIC_ROOT=nafin
 ENDED_PDF_URL=R8/4/keisai-syuuryou.pdf
 PDF_ROOT=nafin/R8/be
-PDF_LIBRARY=nafin/R8/be
+PDF_LIBRARY=/na/na/NAFin-WorkingData/koukoku/Documents/nafin/R8/be
 
 # DBごとのCSV保存先・SharePointリスト名
 DB_KOKOKU_NAME=公告DB
@@ -30,7 +30,7 @@ DB_KOKOKU_SETTINGS_CSV=csv/settings.csv
 DB_KOKOKU_SETTINGS_LIST=kokoku_settings
 DB_KOKOKU_ANNOUNCEMENT_LIST=kokoku
 DB_KOKOKU_LINK_LIST=kokoku_links
-DB_KOKOKU_PDF_LIBRARY=nafin/R8/be
+DB_KOKOKU_PDF_LIBRARY=/na/na/NAFin-WorkingData/koukoku/Documents/nafin/R8/be
 
 DB_KOUJI_NAME=工事公告DB
 DB_KOUJI_PUBLIC_HTML=nafin/R8koukoku_kouji.html
@@ -42,7 +42,7 @@ DB_KOUJI_SETTINGS_CSV=csv/kouji_settings.csv
 DB_KOUJI_SETTINGS_LIST=kouji_settings
 DB_KOUJI_ANNOUNCEMENT_LIST=kouji
 DB_KOUJI_LINK_LIST=kouji_links
-DB_KOUJI_PDF_LIBRARY=nafin/R8/kouji
+DB_KOUJI_PDF_LIBRARY=/na/na/NAFin-WorkingData/koukoku/Documents/nafin/R8/kouji
 
 DB_OP_NAME=OPDB
 DB_OP_PUBLIC_HTML=nafin/R8open.html
@@ -54,7 +54,7 @@ DB_OP_SETTINGS_CSV=csv/op_settings.csv
 DB_OP_SETTINGS_LIST=op_settings
 DB_OP_ANNOUNCEMENT_LIST=op
 DB_OP_LINK_LIST=op_links
-DB_OP_PDF_LIBRARY=nafin/R8/op
+DB_OP_PDF_LIBRARY=/na/na/NAFin-WorkingData/koukoku/Documents/nafin/R8/op
 
 DB_KOBO_NAME=公募DB
 DB_KOBO_PUBLIC_HTML=nafin/R8koubo.html
@@ -66,4 +66,4 @@ DB_KOBO_SETTINGS_CSV=csv/kobo_settings.csv
 DB_KOBO_SETTINGS_LIST=kobo_settings
 DB_KOBO_ANNOUNCEMENT_LIST=kobo
 DB_KOBO_LINK_LIST=kobo_links
-DB_KOBO_PDF_LIBRARY=nafin/R8/kobo
+DB_KOBO_PDF_LIBRARY=/na/na/NAFin-WorkingData/koukoku/Documents/nafin/R8/kobo
