@@ -24,7 +24,17 @@
   function mayLeave() {
     return !workflowBusy && ((!unsaved && !Object.keys(selectedPdfFiles).length) || window.confirm("未保存の変更または選択PDFがあります。出力していない内容は失われます。切り替えますか？"));
   }
-  function runSave(tasks, done) {
+  function saveProgress(message, finished, retry) {
+    var panel = byId("save-progress");
+    if (!panel) { return; }
+    panel.style.display = "block";
+    byId("save-progress-message").textContent = message;
+    byId("save-progress-close").style.display = finished ? "inline-block" : "none";
+    byId("save-progress-close").onclick = function () { panel.style.display = "none"; };
+    byId("save-progress-retry").style.display = retry ? "inline-block" : "none";
+    byId("save-progress-retry").onclick = retry || null;
+  }
+  function runSave(tasks, done, progressTitle) {
     var index = 0;
     unsaved = true;
     function resume() {
@@ -33,13 +43,21 @@
       function next() {
         if (index === tasks.length) {
           workflowBusy = false; pendingSave = null; unsaved = false;
-          byId("retry-save").disabled = true; done(); return;
+          byId("retry-save").disabled = true; done();
+          if (progressTitle) { saveProgress(progressTitle + "：完了しました（" + tasks.length + " / " + tasks.length + "件）。", true); }
+          return;
         }
-        tasks[index](function () { index += 1; next(); }, function (failureMessage) {
+        if (progressTitle) { saveProgress(progressTitle + "：" + (tasks[index].phase || "保存中") + "　完了 " + index + " / " + tasks.length + "件。応答を待っています。画面を閉じずにお待ちください。", false); }
+        var settled = false;
+        function failed(failureMessage) {
+          if (settled) { return; } settled = true;
           workflowBusy = false; pendingSave = resume;
           byId("retry-save").disabled = false;
           byId("form-message").textContent = typeof failureMessage === "string" ? failureMessage : "未保存：保存に失敗しました。変更は保持しています。「再保存」を押してください。競合時はCSVを退避して再読込してください。";
-        });
+          if (progressTitle) { saveProgress(progressTitle + "：エラーで停止しています。完了 " + index + " / " + tasks.length + "件。" + byId("form-message").textContent, false, resume); }
+        }
+        try { tasks[index](function () { if (settled) { return; } settled = true; index += 1; next(); }, failed); }
+        catch (error) { failed("処理に失敗しました：" + (error.message || String(error))); }
       }
       next();
     }
@@ -1660,7 +1678,22 @@
     filterAnnouncements();
   }
 
-  function replaceImportedData(data) {
+  function replaceImportedData(data, snapshot) {
+    if (workflowBusy || pendingSave) { return; }
+    if (DataService.isSharePoint() && !snapshot) {
+      if (!data.announcements || !data.announcements.length) { throw new Error("公告が0件のため登録を中止しました。"); }
+      workflowBusy = true;
+      saveProgress("HTML登録：SharePointの最新データを確認中です。", false);
+      DataService.load(function (fresh) {
+        workflowBusy = false;
+        try { replaceImportedData(data, fresh); }
+        catch (error) { saveProgress("HTML登録を中止しました：" + error.message, true); }
+      }, function () {
+        workflowBusy = false;
+        saveProgress("SharePointの読込に失敗しました。削除・登録は開始していません。", true);
+      });
+      return;
+    }
     var imported = normalizeAnnouncements(data.announcements);
     var importYears = {};
     var importYear;
@@ -1688,6 +1721,17 @@
     previousLinks = allLinks.filter(function (link) { return previousIds[String(link.KokokuID)] === true; });
     retainedAnnouncements = allAnnouncements.filter(function (item) { return itemFiscalYear(item) !== importYear; });
     retainedLinks = allLinks.filter(function (link) { return previousIds[String(link.KokokuID)] !== true; });
+    if (snapshot) {
+      previous = (snapshot.announcements || []).concat(snapshot.publishedAnnouncements || []);
+      previousLinks = (snapshot.links || []).concat(snapshot.publishedLinks || []);
+      retainedAnnouncements = []; retainedLinks = [];
+      allSettings = snapshot.settings || [];
+      currentDateSetting = settingByType("date");
+      retainedSettings = allSettings.filter(function (item) { return item.Type !== "date"; });
+      if (!window.confirm("選択中の区分の公告 " + previous.length + "件とリンク " + previousLinks.length + "件を全件削除し、HTMLの公告 " + imported.length + "件を登録します。全年度・予定一覧・アプリで追加した公告も削除対象です。別区分・PDF・設定は残します。実行しますか？")) {
+        saveProgress("HTML登録をキャンセルしました。データは変更していません。", true); return;
+      }
+    }
     nextImportedId = parseInt(nextId(retainedAnnouncements), 10) || 1;
     var nextImportedLinkId = parseInt(nextLinkId(retainedLinks), 10) || 1;
     for (i = 0; i < imported.length; i += 1) {
@@ -1703,12 +1747,17 @@
     function applied() {
       preserveAnnouncementOrder = true; allAnnouncements = retainedAnnouncements.concat(imported); allLinks = retainedLinks.concat(newLinks);
       allSettings = mergedSettings; unsaved = !DataService.isSharePoint();
+      if (snapshot) { plannedAnnouncements = []; plannedLinks = []; selectedPdfFiles = {}; }
       clearForm(); filterAnnouncements(); renderSettings();
       updateFiscalYearUi();
       byId("import-message").textContent = importYear + "年度のHTMLを取り込みました。リンク先PDFの存在確認は行っていません。" + (DataService.isSharePoint() ? "SharePointへの保存が完了しました。" : "CSVを出力してください。");
     }
     imported.forEach(function (item) { item.ListKind = "published"; item.PublicState = item.Category === "結果" ? "結果掲載中" : "公告掲載中"; });
     if (!DataService.isSharePoint()) { applied(); return; }
+    previousLinks.forEach(function (link) { tasks.push(function (ok, fail) { DataService.remove("links", link.Id || link.ID, ok, fail); }); });
+    previous.forEach(function (item) { tasks.push(function (ok, fail) { DataService.remove("announcements", item.Id || item.ID, ok, fail); }); });
+    tasks.forEach(function (task) { task.phase = "既存データ削除中"; });
+    var deleteCount = tasks.length;
     imported.forEach(function (item) {
       var childLinks = newLinks.filter(function (link) { return String(link.KokokuID) === String(item.ID); });
       tasks.push(function (ok, fail) {
@@ -1718,8 +1767,7 @@
       });
       childLinks.forEach(function (link) { tasks.push(function (ok, fail) { DataService.add("links", { KokokuID: String(item.Id), Text: link.Text, FileName: link.FileName || "", URL: link.URL, Type: link.Type || "公告", Sort: String(link.Sort || "") }, function (saved) { link.Id = saved.Id; link.ID = String(saved.Id); ok(); }, fail); }); });
     });
-    previousLinks.forEach(function (link) { tasks.push(function (ok, fail) { DataService.remove("links", link.Id || link.ID, ok, fail); }); });
-    previous.forEach(function (item) { tasks.push(function (ok, fail) { DataService.remove("announcements", item.Id || item.ID, ok, fail); }); });
+
     var oldSetting = currentDateSetting;
     if (importedDateSettings.length) { tasks.push(function (ok, fail) {
       var item = importedDateSettings[0], payload = { Type: "date", Text: item.Text, URL: "", Sort: "1" };
@@ -1727,8 +1775,8 @@
       else { DataService.add("settings", payload, function (saved) { item.Id = saved.Id; item.ID = String(saved.Id); ok(); }, fail); }
     }); }
     data.settings = mergedSettings;
-    window.alert("取り込んだ" + importYear + "年度HTMLはSharePointへ未保存です。同年度の公告とリンクを置き換えて保存します。PDFファイルは削除しません。");
-    runSave(tasks, applied);
+    tasks.forEach(function (task, index) { if (index >= deleteCount) { task.phase = "HTMLデータ登録中"; } });
+    runSave(tasks, applied, "HTML登録");
   }
 
   function dateOnlySettings(settings) {

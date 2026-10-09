@@ -283,6 +283,14 @@
     </section>
   </main>
 
+  <div id="save-progress" role="dialog" aria-modal="true" aria-labelledby="save-progress-title" style="display:none;position:fixed;inset:0;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:100000;">
+    <div style="background:white;color:#222;max-width:600px;margin:15vh auto;padding:28px;border-radius:8px;">
+      <h2 id="save-progress-title">処理状況</h2>
+      <p id="save-progress-message" role="status" aria-live="polite"></p>
+      <button id="save-progress-retry" type="button" style="display:none">続きから再実行</button>
+      <button id="save-progress-close" type="button" style="display:none">閉じる</button>
+    </div>
+  </div>
   <script type="text/javascript" src="js/csv-data.js?v=20260922-2"></script>
   <script type="text/javascript" src="js/sp.js?v=20260922-3"></script>
   <script type="text/javascript" src="js/data-service.js?v=20260922-3"></script>
@@ -292,6 +300,6 @@
   <script type="text/javascript" src="jisyo/kuromoji.js"></script>
   <script type="text/javascript" src="js/filename-generator.js?v=20260911-1"></script>
   <script type="text/javascript" src="js/publication-workflow.js?v=20260922-3"></script>
-  <script type="text/javascript" src="js/app.js?v=20260922-4"></script>
+  <script type="text/javascript" src="js/app.js?v=20261009-1"></script>
 </body>
 </html>
