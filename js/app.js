@@ -1628,13 +1628,16 @@
     var zipPath;
     var pendingPdfReads = 0;
     var pdfReadFailed = false;
+    var collectingPdfs = true;
+    var zipStarted = false;
     function addPdf(link, file) {
       fileName = link.FileName || fileNameFromUrl(link.URL) || file.name;
       zipPath = link.URL ? (link.URL.indexOf("nafin/") === 0 ? link.URL : "nafin/" + link.URL) : "nafin/" + DataService.getPublicationConfig(activeFiscalYear).pdfRoot + "/" + fileName;
       files.push({ name: zipPath.replace(/\\/g, "/"), file: file });
     }
     function createZip() {
-      if (pdfReadFailed || pendingPdfReads) { return; }
+      if (collectingPdfs || zipStarted || pdfReadFailed || pendingPdfReads) { return; }
+      zipStarted = true;
       ZipExport.create(files, function (blob) {
         try { downloadBlob(zipName, blob); } catch (error) { workflowBusy = false; byId("zip-message").textContent = "ZIPのダウンロードに失敗しました。公開状態は変更していません。"; return; }
         var tasks = [];
@@ -1651,20 +1654,26 @@
     workflowBusy = true;
     for (i = 0; i < data.links.length; i += 1) {
       link = data.links[i];
+      var sourceItem = announcementById(link.KokokuID, allAnnouncements);
+      // HTML always contains the entire list; update ZIP PDFs belong only to pending announcements.
+      if (!fullData && (!sourceItem || sourceItem.Status !== "公開待ち")) { continue; }
       file = selectedPdfFiles[pdfKey("published", link.ID)];
       if (file && link.Type !== "掲載終了") {
         addPdf(link, file);
-      } else if (DataService.isSharePoint() && link.Type === "結果") {
+      } else if (DataService.isSharePoint() && link.Type !== "掲載終了") {
         pendingPdfReads += 1;
         (function (storedLink) {
           DataService.readPdf(storedLink, function (blob) { addPdf(storedLink, blob); pendingPdfReads -= 1; createZip(); }, function () {
             if (pdfReadFailed) { return; }
             pendingPdfReads -= 1; pdfReadFailed = true; workflowBusy = false;
-            byId("zip-message").textContent = "SharePointの結果PDFを読み込めません。ZIPは作成していません。";
+            var detail = "公告ID=" + storedLink.KokokuID + " / ファイル=" + (storedLink.FileName || fileNameFromUrl(storedLink.URL)) + " / リンク=" + storedLink.URL;
+            byId("zip-message").textContent = "SharePointのPDFを読み込めません。ZIPは作成していません。" + detail;
+            if (global.Diagnostics) { global.Diagnostics.error("ZIP-PDF", "PDFの取得に失敗しました。", detail); }
           });
         }(link));
       }
     }
+    collectingPdfs = false;
     createZip();
   }
 
