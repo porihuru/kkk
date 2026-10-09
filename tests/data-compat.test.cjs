@@ -12,7 +12,9 @@ function csvApi() {
 }
 
 test('All four databases export configured filenames with planned/public separation', () => {
-  const text = fs.readFileSync('config/config.txt', 'utf8');
+  const text = fs.readFileSync('config/config.txt', 'utf8')
+    .replace(/^DATA_MODE=.*$/m, 'DATA_MODE=CSV')
+    .replace(/^(.*PDF_LIBRARY)=.*\/nafin\//gm, '$1=nafin/');
   const context = { CsvData: { load: success => success({}) } };
   context.XMLHttpRequest = function () {
     this.open = () => {};

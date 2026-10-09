@@ -218,7 +218,7 @@
 
   DataService.canManageAnnouncement = function (item, kind, adminActive) {
     if (!currentUser || !item) { return false; }
-    if (adminActive && (!DataService.isSharePoint() || currentUser.isAdmin)) { return true; }
+    if (adminActive) { return true; }
     return kind === "planned" && String(item.AuthorId || "") !== "" && String(item.AuthorId) === currentUser.id;
   };
 

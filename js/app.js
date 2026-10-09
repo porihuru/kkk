@@ -1478,11 +1478,11 @@
 
   function activateAdmin() {
     var user = DataService.getCurrentUser();
-    if (!user || (DataService.isSharePoint() && !user.isAdmin)) {
-      byId("admin-message").innerHTML = "管理者権限を確認できません。";
+    if (!user) {
+      byId("admin-message").innerHTML = "ログインユーザーを確認できません。";
       return;
     }
-    if (!DataService.isSharePoint() && byId("admin-password").value !== ADMIN_PASSWORD) {
+    if (byId("admin-password").value !== ADMIN_PASSWORD) {
       byId("admin-message").innerHTML = "パスワードが正しくありません。";
       return;
     }

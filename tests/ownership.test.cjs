@@ -28,10 +28,12 @@ test('CSV allows only own planned posts, with administrator override', () => {
   assert(d.canManageAnnouncement({},'published',true));
 });
 
-test('SharePoint uses authenticated numeric AuthorId and rejects password-only admin elevation', () => {
+test('SharePoint uses authenticated numeric AuthorId and allows activated application administrators', () => {
   const d=service('SHAREPOINT',{id:'7',name:'Alice',isAdmin:false});
   assert(d.canManageAnnouncement({AuthorId:7},'planned',false));
-  assert(!d.canManageAnnouncement({AuthorId:8},'planned',true));
+  assert(!d.canManageAnnouncement({AuthorId:8},'planned',false));
+  assert(d.canManageAnnouncement({AuthorId:8},'planned',true));
+  assert(d.canManageAnnouncement({},'published',true));
   assert(!d.canManageAnnouncement({AuthorId:'alice'},'planned',false));
   const admin=service('SHAREPOINT',{id:'9',name:'Admin',isAdmin:true});
   assert(admin.canManageAnnouncement({AuthorId:8},'planned',true));
@@ -42,6 +44,27 @@ test('User lookup failure denies ownership checks even with administrator flag',
   const d=service('SHAREPOINT',null,true);
   assert.equal(d.getCurrentUser(),null);
   assert(!d.canManageAnnouncement({AuthorId:7},'planned',true));
+});
+
+test('Administrator activation requires password in both modes, including site administrators', () => {
+  for (const mode of ['CSV', 'SHAREPOINT']) {
+    for (const isAdmin of [false, true]) {
+      const elements = {};
+      const ctx = { DataService: { getCurrentUser: () => ({id:'7', isAdmin}), isSharePoint: () => mode === 'SHAREPOINT' },
+        document: { getElementById: id => elements[id] || (elements[id] = {value:'', innerHTML:''}) } };
+      vm.createContext(ctx);
+      const source = fs.readFileSync('js/app.js','utf8').replace('global.onload = start;',
+        'setAdminVisibility=function(){};filterAnnouncements=function(){};global.adminTest={activate:activateAdmin,active:function(){return adminActive;}};');
+      vm.runInContext(source, ctx);
+      ctx.document.getElementById('admin-password').value = 'wrong';
+      ctx.adminTest.activate();
+      assert.equal(ctx.adminTest.active(), false);
+      elements['admin-password'].value = 'snk';
+      ctx.adminTest.activate();
+      assert.equal(ctx.adminTest.active(), true);
+      assert.equal(elements['admin-password'].value, '');
+    }
+  }
 });
 
 test('Direct save and delete handlers reject other users posts without changing state', () => {
