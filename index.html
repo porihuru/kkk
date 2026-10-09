@@ -5,11 +5,11 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>入札公告管理</title>
-  <link rel="stylesheet" href="css/style.css?v=20260922-4">
+  <link rel="stylesheet" href="css/style.css?v=20261009-3">
 </head>
 <body>
   <script type="text/javascript" src="js/error-notice.js?v=20260922-2"></script>
-  <header class="site-header">
+  <header class="site-header" id="fixed-menu">
     <div class="header-inner">
       <div class="header-copy">
         <p class="eyebrow">公告管理システム</p>
@@ -55,7 +55,18 @@
         <p id="admin-message" class="form-message" aria-live="polite"></p>
       </section>
     </div>
+    <div class="operation-bar">
+      <span id="operation-latest" role="status" aria-live="polite">操作結果はここに表示されます。</span>
+      <button id="operation-history-toggle" type="button" aria-expanded="false">操作履歴</button>
+    </div>
   </header>
+  <div id="menu-spacer" aria-hidden="true"></div>
+  <section id="operation-history" class="operation-history" aria-label="操作履歴" style="display:none">
+    <h2>操作履歴（日本時間・このタブの最新200件）</h2>
+    <button id="operation-history-close" type="button">閉じる</button>
+    <button id="operation-history-clear" type="button">履歴を消去</button>
+    <ol id="operation-history-list"></ol>
+  </section>
 
   <main class="page-body">
     <section class="importer admin-only hidden" aria-label="既存HTML取り込み">
@@ -209,7 +220,7 @@
       <table>
         <thead>
           <tr>
-            <th scope="col" class="id-column">ID</th>
+            <th scope="col" class="id-column">番号</th>
             <th scope="col" class="year-column">年度</th>
             <th scope="col" class="action-column">操作</th>
             <th scope="col" class="operation-date-column">操作日時</th>
@@ -249,7 +260,7 @@
       <table>
         <thead>
           <tr>
-            <th scope="col" class="id-column">ID</th>
+            <th scope="col" class="id-column">番号</th>
             <th scope="col" class="year-column">年度</th>
             <th scope="col" class="action-column">操作</th>
             <th scope="col" class="operation-date-column">操作日時</th>
@@ -300,6 +311,7 @@
   <script type="text/javascript" src="jisyo/kuromoji.js"></script>
   <script type="text/javascript" src="js/filename-generator.js?v=20260911-1"></script>
   <script type="text/javascript" src="js/publication-workflow.js?v=20260922-3"></script>
-  <script type="text/javascript" src="js/app.js?v=20261009-2"></script>
+  <script type="text/javascript" src="js/operation-history.js?v=20261009-3"></script>
+  <script type="text/javascript" src="js/app.js?v=20261009-3"></script>
 </body>
 </html>

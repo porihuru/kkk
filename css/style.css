@@ -11,10 +11,24 @@ body {
 }
 
 .site-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 900;
+  max-height: 50vh;
+  overflow: auto;
   color: #ffffff;
   background: #173f4b;
   border-bottom: 5px solid #d8a646;
 }
+
+.operation-bar { width: 90%; margin: 0 auto; padding: 8px 0; display: flex; align-items: center; gap: 12px; }
+#operation-latest { flex: 1; overflow-wrap: break-word; }
+.operation-history { position: fixed; top: 10%; left: 5%; width: 90%; max-height: 80vh; overflow: auto; z-index: 11000; padding: 20px; background: white; color: #17212b; border: 3px solid #173f4b; box-shadow: 0 4px 24px #555; }
+.operation-history li { padding: 8px; border-bottom: 1px solid #ddd; white-space: pre-wrap; overflow-wrap: break-word; }
+.management-id { color: #64717b; font-size: 10px; }
+@media print { .site-header { position: static; max-height: none; } #menu-spacer, .operation-history, .operation-bar { display: none !important; } }
 
 .header-inner,
 .page-body {

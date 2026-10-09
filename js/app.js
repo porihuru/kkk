@@ -622,7 +622,9 @@
       state.announcements.sort(compareAnnouncements);
       announcements.sort(compareAnnouncements);
     }
-    countElement.innerHTML = announcements.length + "件";
+    var displayedIds = announcements.map(function (item) { return String(item.ID); });
+    var linkCount = state.links.filter(function (item) { return displayedIds.indexOf(String(item.KokokuID)) >= 0; }).length;
+    countElement.textContent = "公告 " + announcements.length + "件（リンク " + linkCount + "件）";
     if (!announcements.length) {
       listElement.innerHTML = '<tr><td colspan="' + (kind === "planned" ? "12" : "10") + '" class="empty-row">該当する公告はありません。</td></tr>';
       return;
@@ -642,7 +644,7 @@
       if (adminActive && !announcements[i]._virtualResult) {
         html.push("<span class=\"order-controls\"><button type=\"button\" class=\"button order-button order-up-button\" data-list=\"" + kind + "\" data-id=\"" + escapeHtml(announcements[i].ID) + "\" aria-label=\"上へ移動\"" + upDisabled + ">↑</button><button type=\"button\" class=\"button order-button order-down-button\" data-list=\"" + kind + "\" data-id=\"" + escapeHtml(announcements[i].ID) + "\" aria-label=\"下へ移動\"" + downDisabled + ">↓</button></span>");
       }
-      html.push(escapeHtml(announcements[i].ID) + "</td>");
+      html.push('<span title="管理ID: ' + escapeHtml(announcements[i].ID) + '">' + (i + 1) + '</span><br><small class="management-id">ID: ' + escapeHtml(announcements[i].ID) + '</small></td>');
       html.push("<td class=\"year-cell\">" + escapeHtml(itemFiscalYear(announcements[i]) || "不明") + "</td>");
       html.push("<td class=\"actions\">");
       if (canOperate && !isResultWork(announcements[i])) {
@@ -1759,7 +1761,7 @@
       if (snapshot) { plannedAnnouncements = []; plannedLinks = []; selectedPdfFiles = {}; }
       clearForm(); filterAnnouncements(); renderSettings();
       updateFiscalYearUi();
-      byId("import-message").textContent = importYear + "年度のHTMLを取り込みました。リンク先PDFの存在確認は行っていません。" + (DataService.isSharePoint() ? "SharePointへの保存が完了しました。" : "CSVを出力してください。");
+      byId("import-message").textContent = importYear + "年度のHTMLを取り込みました。公告 " + imported.length + "件・リンク " + newLinks.length + "件。表示番号は1からです。リンク先PDFの存在確認は行っていません。" + (DataService.isSharePoint() ? "SharePointへの保存が完了しました。" : "CSVを出力してください。");
     }
     imported.forEach(function (item) { item.ListKind = "published"; item.PublicState = item.Category === "結果" ? "結果掲載中" : "公告掲載中"; });
     if (!DataService.isSharePoint()) { applied(); return; }
