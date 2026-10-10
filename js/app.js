@@ -14,6 +14,9 @@
   var editingList = "planned";
   var selectedPdfFiles = {};
   var filenameGenerationSequences = [];
+  var filenameDirty = [];
+  var filenamePending = [];
+  var filenameComposing = [];
   var resultWorkMode = false;
   var editingResultSourceId = "";
   var PDF_ROW_COUNT = 5;
@@ -229,6 +232,8 @@
     var sequence = (filenameGenerationSequences[rowIndex] || 0) + 1;
     var fiscalYear = fiscalYearForBidDate(byId("date-input").value) || activeFiscalYear;
     filenameGenerationSequences[rowIndex] = sequence;
+    filenameDirty[rowIndex] = false;
+    filenamePending[rowIndex] = false;
     if (rowIndex > 0 && !title) {
       pdfInput("link-url-input", rowIndex).value = "";
       return;
@@ -237,6 +242,7 @@
       pdfInput("link-url-input", rowIndex).value = "";
       return;
     }
+    filenamePending[rowIndex] = true;
     global.FilenameGenerator.generate({
       title: title,
       garrison: garrison,
@@ -246,12 +252,14 @@
       if (sequence !== filenameGenerationSequences[rowIndex]) {
         return;
       }
+      filenamePending[rowIndex] = false;
       pdfInput("link-url-input", rowIndex).value = DataService.getPublicationConfig(fiscalYear).pdfRoot.replace(/^\/+|\/+$/g, "") + "/" + result.fileName;
     }, function () {
       if (sequence !== filenameGenerationSequences[rowIndex]) {
         return;
       }
       pdfInput("link-url-input", rowIndex).value = "";
+      filenamePending[rowIndex] = false;
       byId("form-message").innerHTML = "PDF表示名からPDFリンクを作成できません。読みやすい日本語で入力してください。";
     });
   }
@@ -269,7 +277,23 @@
     var i;
     for (i = 0; i < PDF_ROW_COUNT; i += 1) {
       (function (rowIndex) {
-        pdfInput("link-text-input", rowIndex).oninput = function () { updatePdfLink(rowIndex); };
+        var input = pdfInput("link-text-input", rowIndex);
+        function commit() {
+          if (!filenameComposing[rowIndex] && filenameDirty[rowIndex]) { updatePdfLink(rowIndex); }
+        }
+        input.oninput = function () {
+          filenameDirty[rowIndex] = true;
+          filenameGenerationSequences[rowIndex] = (filenameGenerationSequences[rowIndex] || 0) + 1;
+          filenamePending[rowIndex] = false;
+        };
+        input.oncompositionstart = function () { filenameComposing[rowIndex] = true; };
+        input.oncompositionend = function () { filenameComposing[rowIndex] = false; filenameDirty[rowIndex] = true; };
+        input.onkeydown = function (event) {
+          event = event || global.event;
+          if (event.isComposing || filenameComposing[rowIndex] || event.keyCode === 229) { return; }
+          if (event.keyCode === 13 || event.key === "Enter") { event.preventDefault(); commit(); }
+        };
+        input.onblur = function () { filenameComposing[rowIndex] = false; commit(); };
         pdfInput("pdf-file-input", rowIndex).onchange = function () {
           var file = this.files && this.files.length ? this.files[0] : null;
           if (file && !validPdfFile(file, resultWorkMode ? "結果PDF" : "公告PDF")) {
@@ -738,7 +762,13 @@
     }
   }
 
+  function resetFilenameWork() {
+    filenameDirty = []; filenamePending = []; filenameComposing = [];
+    for (var row = 0; row < PDF_ROW_COUNT; row += 1) { filenameGenerationSequences[row] = (filenameGenerationSequences[row] || 0) + 1; }
+  }
+
   function beginEdit() {
+    resetFilenameWork();
     if (workflowBusy || pendingSave) { return; }
     var kind = this.getAttribute("data-list") || "planned";
     var state = listState(kind);
@@ -773,6 +803,7 @@
   }
 
   function beginResultWork() {
+    resetFilenameWork();
     if (workflowBusy || pendingSave) { return; }
     var task = announcementById(this.getAttribute("data-id"), plannedAnnouncements);
     var source;
@@ -813,6 +844,7 @@
   }
 
   function clearForm() {
+    resetFilenameWork();
     formDirty = false;
     setResultFormMode(false);
     byId("announcement-form").reset();
@@ -1006,6 +1038,13 @@
       event.preventDefault();
     }
     if (resultWorkMode) { return saveResultWork(); }
+    if (filenameComposing.some(function (value) { return value; })) {
+      byId("form-message").textContent = "品名の日本語変換を確定してください。"; return false;
+    }
+    filenameDirty.forEach(function (dirty, rowIndex) { if (dirty) { updatePdfLink(rowIndex); } });
+    if (filenamePending.some(function (value) { return value; })) {
+      byId("form-message").textContent = "PDF名を変換中です。変換後にもう一度保存してください。"; return false;
+    }
     if (!DataService.getCurrentUser() || (id && (!announcement || !DataService.canManageAnnouncement(announcement, targetKind, adminActive)))) {
       byId("form-message").innerHTML = "この投稿を修正する権限がありません。";
       return false;
