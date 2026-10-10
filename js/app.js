@@ -1629,25 +1629,13 @@
     try { html = HtmlExport.create(data.announcements, data.links, allSettings, activeFiscalYear); }
     catch (error) { byId("zip-message").textContent = "ZIPを作成できません。" + error.message; return; }
     var files = [{ name: htmlPath, content: html }];
-    var i;
-    var link;
-    var file;
-    var fileName;
-    var zipPath;
-    var pendingPdfReads = 0;
-    var pdfReadFailed = false;
-    var collectingPdfs = true;
+    var reads = [];
     var zipStarted = false;
-    function addPdf(link, file) {
-      fileName = link.FileName || fileNameFromUrl(link.URL) || file.name;
-      zipPath = link.URL ? (link.URL.indexOf("nafin/") === 0 ? link.URL : "nafin/" + link.URL) : "nafin/" + DataService.getPublicationConfig(activeFiscalYear).pdfRoot + "/" + fileName;
-      files.push({ name: zipPath.replace(/\\/g, "/"), file: file });
-    }
     function createZip() {
-      if (collectingPdfs || zipStarted || pdfReadFailed || pendingPdfReads) { return; }
+      if (zipStarted) { return; }
       zipStarted = true;
       ZipExport.create(files, function (blob) {
-        try { downloadBlob(zipName, blob); } catch (error) { workflowBusy = false; byId("zip-message").textContent = "ZIPのダウンロードに失敗しました。公開状態は変更していません。"; return; }
+        try { downloadBlob(zipName, blob); } catch (error) { workflowBusy = false; byId("zip-message").textContent = "ZIPのダウンロードに失敗しました。公開状態は変更していません。"; saveProgress(byId("zip-message").textContent, true); return; }
         var tasks = [];
         data.announcements.forEach(function (candidate) {
           var item = announcementById(candidate.ID, allAnnouncements);
@@ -1656,33 +1644,39 @@
             tasks.push(function (ok, fail) { saveWorkflowItem(item, patch, ok, fail); });
           }
         });
-        runSave(tasks, function () { unsaved = !DataService.isSharePoint(); filterAnnouncements(); byId("zip-message").textContent = zipName + "を出力し、対象を公開済みにしました。" + (DataService.isSharePoint() ? "" : "状態を残す場合はCSVも出力してください。"); });
-      }, function () { workflowBusy = false; byId("zip-message").textContent = "PDFの読込に失敗しました。ZIPは作成していません。"; });
+        runSave(tasks, function () { unsaved = !DataService.isSharePoint(); filterAnnouncements(); byId("zip-message").textContent = zipName + "を出力し、対象を公開済みにしました。" + (DataService.isSharePoint() ? "" : "状態を残す場合はCSVも出力してください。"); saveProgress(byId("zip-message").textContent, true); }, "ZIP公開状態の保存");
+      }, function () { workflowBusy = false; byId("zip-message").textContent = "PDFの読込に失敗しました。ZIPは作成していません。"; saveProgress(byId("zip-message").textContent, true); });
     }
-    workflowBusy = true;
-    for (i = 0; i < data.links.length; i += 1) {
-      link = data.links[i];
+    data.links.forEach(function (link) {
       var sourceItem = announcementById(link.KokokuID, allAnnouncements);
-      // HTML always contains the entire list; update ZIP PDFs belong only to pending announcements.
-      if (!fullData && (!sourceItem || sourceItem.Status !== "公開待ち")) { continue; }
-      file = selectedPdfFiles[pdfKey("published", link.ID)];
-      if (file && link.Type !== "掲載終了") {
-        addPdf(link, file);
-      } else if (DataService.isSharePoint() && link.Type !== "掲載終了") {
-        pendingPdfReads += 1;
-        (function (storedLink) {
-          DataService.readPdf(storedLink, function (blob) { addPdf(storedLink, blob); pendingPdfReads -= 1; createZip(); }, function () {
-            if (pdfReadFailed) { return; }
-            pendingPdfReads -= 1; pdfReadFailed = true; workflowBusy = false;
-            var detail = "公告ID=" + storedLink.KokokuID + " / ファイル=" + (storedLink.FileName || fileNameFromUrl(storedLink.URL)) + " / リンク=" + storedLink.URL;
-            byId("zip-message").textContent = "SharePointのPDFを読み込めません。ZIPは作成していません。" + detail;
-            if (global.Diagnostics) { global.Diagnostics.error("ZIP-PDF", "PDFの取得に失敗しました。", detail); }
-          });
-        }(link));
+      if (link.Type === "掲載終了" || (!fullData && (!sourceItem || sourceItem.Status !== "公開待ち"))) { return; }
+      var file = selectedPdfFiles[pdfKey("published", link.ID)];
+      if (!file && !DataService.isSharePoint()) { return; }
+      var name = link.FileName || fileNameFromUrl(link.URL) || (file && file.name);
+      var entry = {name: "nafin/" + (link.URL || DataService.getPublicationConfig(activeFiscalYear).pdfRoot + "/" + name), file: file};
+      files.push(entry);
+      if (!file) { reads.push({link:link, entry:entry}); }
+    });
+    workflowBusy = true;
+    byId("zip-message").textContent = "ZIPの構造を確認してください。まだ作成していません。";
+    ZipPreview.open(zipName, files, fullData, function () {
+      var index = 0;
+      function next() {
+        saveProgress("ZIP作成中：PDF取得 " + index + " / " + reads.length + "件。画面を閉じずにお待ちください。", false);
+        if (index === reads.length) { createZip(); return; }
+        var task = reads[index];
+        DataService.readPdf(task.link, function (blob) { task.entry.file = blob; index += 1; next(); }, function () {
+          workflowBusy = false;
+          var message = "PDFを読み込めません。ZIPは作成していません。公告ID=" + task.link.KokokuID + " / " + task.entry.name;
+          byId("zip-message").textContent = message;
+          saveProgress(message, true);
+        });
       }
-    }
-    collectingPdfs = false;
-    createZip();
+      next();
+    }, function () {
+      workflowBusy = false;
+      byId("zip-message").textContent = "ZIP作成をキャンセルしました。公開状態は変更していません。";
+    });
   }
 
   function toggleDateSort() {

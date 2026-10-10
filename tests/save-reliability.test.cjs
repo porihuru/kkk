@@ -86,9 +86,9 @@ test('SharePoint update and delete use loaded ETag and reject missing versions',
 test('Moving a new announcement waits for ZIP success before publication; ZIP failure preserves state', () => {
   const elements = {};
   let zipSuccess, zipFailure;
-  const context = { Blob, navigator:{msSaveBlob:()=>{}}, document:{getElementById:id=>elements[id]||(elements[id]={})},
+  const context = { Blob, navigator:{msSaveBlob:()=>{}}, document:{getElementById:id=>elements[id]||(elements[id]={style:{}})},
     DataService:{isSharePoint:()=>false,getPublicHtmlPath:()=> 'nafin/R8open.html',getPublicHtmlFileName:()=> 'R8open.html',getPublicationConfig:()=>({endedUrl:'R8/4/end.pdf'})},
-    HtmlExport:{create:()=>'<html></html>'}, ZipExport:{create:(files,ok,fail)=>{assert.equal(files[0].name,'nafin/R8open.html');zipSuccess=ok;zipFailure=fail;}} };
+    ZipPreview:{open:(name,files,full,yes)=>yes()}, HtmlExport:{create:()=>'<html></html>'}, ZipExport:{create:(files,ok,fail)=>{assert.equal(files[0].name,'nafin/R8open.html');zipSuccess=ok;zipFailure=fail;}} };
   vm.createContext(context);vm.runInContext(fs.readFileSync('js/publication-workflow.js','utf8'),context);
   vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', `global.testFlow = { move: moveAnnouncement, zip: exportZip, setup: function(item) { adminActive=true; activeFiscalYear="R8"; filterAnnouncements=function(){}; plannedAnnouncements=[item]; plannedLinks=[{ID:'1',KokokuID:item.ID,Text:'PDF',URL:'R8/op/a.pdf'}]; }, items:function(){return allAnnouncements;} };`),context);
   const item={ID:'1',Category:'NEW',Status:'公告登録',BidDate:'R8.10.1',FiscalYear:'R8'};
@@ -102,7 +102,7 @@ test('Moving a new announcement waits for ZIP success before publication; ZIP fa
 
 test('Announcement save uploads PDF first and uses returned parent ID before saving links', () => {
   const elements={}, calls=[];let attempt=0;
-  const context={document:{getElementById:id=>elements[id]||(elements[id]={})},DataService:{
+  const context={document:{getElementById:id=>elements[id]||(elements[id]={style:{}})},DataService:{
     isSharePoint:()=>true,
     uploadPdf:(file,name,ok)=>{calls.push('pdf');ok();},
     add:(kind,payload,ok,fail)=>{
@@ -123,7 +123,7 @@ test('Announcement save uploads PDF first and uses returned parent ID before sav
 
 test('PDF confirmation opens the registered URL and prefers a selected local PDF', () => {
   const elements={},opened=[],saved=[];
-  const context={document:{getElementById:id=>elements[id]||(elements[id]={})},navigator:{msSaveOrOpenBlob:(file,name)=>saved.push({file,name})},DataService:{
+  const context={document:{getElementById:id=>elements[id]||(elements[id]={style:{}})},navigator:{msSaveOrOpenBlob:(file,name)=>saved.push({file,name})},DataService:{
     isSharePoint:()=>true,getPdfPreviewUrl:(url,name)=>'https://sharepoint.test/library/'+name,getPublicLinkUrl:url=>'https://public.test/'+url
   }};
   context.open=url=>{opened.push(url);return {};};context.setTimeout=fn=>fn();context.URL={createObjectURL:()=>'',revokeObjectURL:()=>{}};
@@ -140,7 +140,7 @@ test('PDF confirmation opens the registered URL and prefers a selected local PDF
 
 test('Administrator end button sets the ended state and configured end PDF without overwriting the stored link', () => {
   const elements={};
-  const context={document:{getElementById:id=>elements[id]||(elements[id]={})},DataService:{isSharePoint:()=>false}};
+  const context={document:{getElementById:id=>elements[id]||(elements[id]={style:{}})},DataService:{isSharePoint:()=>false}};
   vm.createContext(context);vm.runInContext(fs.readFileSync('js/publication-workflow.js','utf8'),context);
   vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', `global.testEnd={setup:function(item,link){adminActive=true;activeFiscalYear="R8";allAnnouncements=[item];allLinks=[link];filterAnnouncements=function(){};},end:endPublication,data:function(){return {announcements:allAnnouncements,links:allLinks};}};`),context);
   const item={ID:'10',Category:'NEW',Status:'公告反映済',PublicState:'公告掲載中',BidDate:'R8.10.1',FiscalYear:'R8'};
@@ -167,7 +167,7 @@ test('Ended announcements create one virtual result task and completed results d
 
 test('Result work button is visible to an ordinary user who did not post the source announcement', () => {
   const elements={};
-  const context={document:{getElementById:id=>elements[id]||(elements[id]={}),getElementsByClassName:()=>[]},DataService:{canManageAnnouncement:()=>false,getPublicLinkUrl:value=>value,getPublicationConfig:()=>({endedUrl:'R8/4/end.pdf'})}};
+  const context={document:{getElementById:id=>elements[id]||(elements[id]={style:{}}),getElementsByClassName:()=>[]},DataService:{canManageAnnouncement:()=>false,getPublicLinkUrl:value=>value,getPublicationConfig:()=>({endedUrl:'R8/4/end.pdf'})}};
   vm.createContext(context);vm.runInContext(fs.readFileSync('js/publication-workflow.js','utf8'),context);
   vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', `global.testResultButton={setup:function(item,link){adminActive=false;plannedAnnouncements=[item];plannedLinks=[link];},render:function(item){renderList("planned",[item]);}};`),context);
   const task={ID:'result-10',WorkType:'RESULT',SourceAnnouncementID:'10',Category:'結果',Garrison:'札幌',BidDate:'R8.10.6',Status:'結果作業',AuthorName:'未担当',_virtualResult:true};
@@ -194,7 +194,7 @@ test('An ordinary user can save a virtual result task as the recorded result sub
 
 test('Publishing a saved result overwrites its source announcement and removes the planned task', () => {
   const elements={};
-  const context={document:{getElementById:id=>elements[id]||(elements[id]={})},DataService:{isSharePoint:()=>false}};
+  const context={document:{getElementById:id=>elements[id]||(elements[id]={style:{}})},DataService:{isSharePoint:()=>false}};
   vm.createContext(context);vm.runInContext(fs.readFileSync('js/publication-workflow.js','utf8'),context);
   vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', `filterAnnouncements=function(){};clearForm=function(){};global.testPublishResult={setup:function(source,sourceLink,task,resultLink){adminActive=true;activeFiscalYear="R8";allAnnouncements=[source];allLinks=[sourceLink];plannedAnnouncements=[task];plannedLinks=[resultLink];},publish:publishResultWork,data:function(){return {published:allAnnouncements,publishedLinks:allLinks,planned:plannedAnnouncements,plannedLinks:plannedLinks};}};`),context);
   const source={ID:'10',Category:'',PublicState:'掲載終了',Status:'公告反映済',BidDate:'R8.10.6',FiscalYear:'R8'};
@@ -236,7 +236,7 @@ test('Announcement save stops when bid-date fiscal year differs from working yea
     'form-message':{textContent:'',innerHTML:''}
   };
   for(let i=1;i<=5;i+=1){elements['link-text-input-'+i]={value:i===1?'年度不一致試験':''};elements['link-url-input-'+i]={value:i===1?'R9/be/test.pdf':''};elements['pdf-file-input-'+i]={files:[]};}
-  const context={document:{getElementById:id=>elements[id]||(elements[id]={})},DataService:{getCurrentUser:()=>({id:'user-a',name:'利用者A'}),canManageAnnouncement:()=>true}};
+  const context={document:{getElementById:id=>elements[id]||(elements[id]={style:{}})},DataService:{getCurrentUser:()=>({id:'user-a',name:'利用者A'}),canManageAnnouncement:()=>true}};
   vm.createContext(context);vm.runInContext(fs.readFileSync('js/publication-workflow.js','utf8'),context);
   vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', 'activeFiscalYear="R8";global.testMismatch={save:saveAnnouncement,count:function(){return plannedAnnouncements.length;}};'),context);
   assert.equal(context.testMismatch.save({preventDefault:()=>{}}),false);
@@ -249,7 +249,7 @@ test('Ordinary user can switch R8-R12 views and dirty input blocks switching', (
     'data-status':{},'admin-message':{},'form-message':{},'search-input':{value:''},
     'planned-announcement-list':{},'planned-record-count':{},'announcement-list':{},'record-count':{}
   };
-  const context={document:{getElementById:id=>elements[id]||(elements[id]={}),getElementsByClassName:()=>[]},DataService:{
+  const context={document:{getElementById:id=>elements[id]||(elements[id]={style:{}}),getElementsByClassName:()=>[]},DataService:{
     setFiscalYear:()=>true,getPublicHtmlUrl:year=>'https://example.test/'+year+'.html',canManageAnnouncement:()=>false,
     getPublicLinkUrl:value=>value,getPublicationConfig:year=>({endedUrl:year+'/4/end.pdf'})
   }};
