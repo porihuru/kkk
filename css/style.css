@@ -2,6 +2,73 @@
   box-sizing: border-box;
 }
 
+.theme-toggle {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 901;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 6px;
+  border: 1px solid #75949b;
+  border-radius: 50%;
+  color: #ffffff;
+  background: #173f4b;
+  cursor: pointer;
+}
+
+.theme-toggle:hover { background: #315e67; }
+.theme-toggle:focus-visible { outline: 2px solid #f2c66d; outline-offset: 2px; }
+.theme-toggle svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.theme-toggle .theme-sun { display: none; }
+[data-theme="dark"] .theme-toggle .theme-moon { display: none; }
+[data-theme="dark"] .theme-toggle .theme-sun { display: block; }
+.site-header .header-copy { padding-right: 104px; min-height: 34px; }
+@media print { .theme-toggle { display: none; } }
+
+@media screen {
+  html[data-theme="dark"] { color-scheme: dark; }
+  [data-theme="dark"] body { color: #e2e9ed; background: #11191f; }
+  [data-theme="dark"] .site-header { background: #102e38; }
+  [data-theme="dark"] .toolbar,
+  [data-theme="dark"] .editor,
+  [data-theme="dark"] .importer,
+  [data-theme="dark"] .admin-access,
+  [data-theme="dark"] .deleted-list,
+  [data-theme="dark"] .table-wrap,
+  [data-theme="dark"] .operation-history { color: #e2e9ed; background: #1c2932; }
+  [data-theme="dark"] input,
+  [data-theme="dark"] select,
+  [data-theme="dark"] textarea { color: #e2e9ed; background: #121e27; border-color: #526570; }
+  [data-theme="dark"] input::placeholder,
+  [data-theme="dark"] textarea::placeholder { color: #9cadb8; opacity: 1; }
+  [data-theme="dark"] label,
+  [data-theme="dark"] .form-message,
+  [data-theme="dark"] .admin-access p,
+  [data-theme="dark"] .settings-preview,
+  [data-theme="dark"] .pdf-row-number,
+  [data-theme="dark"] .record-count,
+  [data-theme="dark"] .empty-row,
+  [data-theme="dark"] .management-id { color: #b5c6cf; }
+  [data-theme="dark"] .settings-preview strong,
+  [data-theme="dark"] .settings-editor h3,
+  [data-theme="dark"] .pdf-links-heading,
+  [data-theme="dark"] .header-inner .admin-access h2 { color: #a0d7df; }
+  [data-theme="dark"] a { color: #8ed5ee; }
+  [data-theme="dark"] .button-secondary { color: #a0d7df; background: #243943; border-color: #638d96; }
+  [data-theme="dark"] th { background: #274c57; }
+  [data-theme="dark"] td,
+  [data-theme="dark"] .table-wrap,
+  [data-theme="dark"] .settings-editor,
+  [data-theme="dark"] .pdf-links-editor,
+  [data-theme="dark"] .operation-history li { border-color: #3c505c; }
+  [data-theme="dark"] .due-notice { color: #ffb38c; }
+  [data-theme="dark"] #save-progress > div { color: #e2e9ed !important; background: #1c2932 !important; }
+}
+
 body {
   margin: 0;
   color: #17212b;

@@ -42,19 +42,24 @@
   }
 
   function render() {
-    var lines = [];
     var errorCount = 0;
     var i;
+    var row;
     if (!output) {
       return;
     }
+    output.textContent = "";
     for (i = 0; i < entries.length; i += 1) {
-      lines.push(lineText(entries[i]));
+      row = document.createElement("div");
+      row.textContent = lineText(entries[i]);
+      row.style.marginBottom = "16px";
       if (entries[i].level === "ERROR") {
+        row.style.color = "#b42318";
         errorCount += 1;
       }
+      output.appendChild(row);
     }
-    output.value = lines.length ? lines.join("\r\n\r\n") : "現在、記録されたエラーはありません。";
+    if (!entries.length) { output.textContent = "現在、記録されたエラーはありません。"; }
     if (toggleButton) {
       toggleButton.innerHTML = errorCount ? "診断 " + errorCount : "診断";
       toggleButton.style.borderColor = errorCount ? "#a84b3d" : "#819096";
@@ -148,8 +153,8 @@
     toggleButton.title = "エラー診断を表示";
     buttonStyle(toggleButton);
     toggleButton.style.position = "fixed";
-    toggleButton.style.top = "4px";
-    toggleButton.style.right = "4px";
+    toggleButton.style.top = "8px";
+    toggleButton.style.right = "48px";
     toggleButton.style.zIndex = "2147483647";
     toggleButton.style.opacity = "0.72";
     toggleButton.style.fontSize = "10px";
@@ -159,7 +164,7 @@
     panel.id = "diagnostics-panel";
     panel.style.display = "none";
     panel.style.position = "fixed";
-    panel.style.top = "30px";
+    panel.style.top = "48px";
     panel.style.right = "8px";
     panel.style.zIndex = "2147483646";
     panel.style.width = "560px";
@@ -187,11 +192,22 @@
     copyButton.innerHTML = "コピー";
     buttonStyle(copyButton);
     copyButton.onclick = function () {
-      output.focus();
-      output.select();
+      var copyText = document.createElement("textarea");
+      var lines = [];
+      var i;
+      for (i = 0; i < entries.length; i += 1) { lines.push(lineText(entries[i])); }
+      copyText.value = lines.length ? lines.join("\r\n\r\n") : "現在、記録されたエラーはありません。";
+      copyText.style.position = "fixed";
+      copyText.style.opacity = "0";
+      copyText.readOnly = true;
+      panel.appendChild(copyText);
+      copyText.focus();
+      copyText.select();
       try {
         document.execCommand("copy");
       } catch (ignore) {}
+      panel.removeChild(copyText);
+      copyButton.focus();
     };
     header.appendChild(copyButton);
 
@@ -234,8 +250,9 @@
     };
     header.appendChild(closeButton);
 
-    output = document.createElement("textarea");
-    output.readOnly = true;
+    output = document.createElement("div");
+    output.tabIndex = 0;
+    output.setAttribute("role", "region");
     output.setAttribute("aria-label", "エラー診断内容");
     output.style.display = "block";
     output.style.width = "100%";
@@ -246,7 +263,9 @@
     output.style.background = "#f7f9f9";
     output.style.color = "#17212b";
     output.style.font = "12px Consolas, Meiryo, monospace";
-    output.style.whiteSpace = "pre";
+    output.style.whiteSpace = "pre-wrap";
+    output.style.overflowWrap = "break-word";
+    output.style.overflow = "auto";
 
     panel.appendChild(header);
     panel.appendChild(output);
