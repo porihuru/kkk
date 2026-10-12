@@ -18,6 +18,50 @@ function service(mode, user, failUser) {
   return ctx.DataService;
 }
 
+test('explicit CSV selection survives reload on a test site with SharePoint configuration', () => {
+  const stored = {};
+  function loadPage() {
+    const ctx = {
+      location: { pathname: '/index.html' },
+      localStorage: { getItem: key => stored[key], setItem: (key, value) => { stored[key] = value; } },
+      CsvData: { load: success => success({}) },
+      SP: { init() {}, load() {}, getCurrentUser(success, fail) { fail({ status: 404 }); } },
+      XMLHttpRequest: function () {
+        this.open = () => {};
+        this.send = () => {
+          this.readyState = 4; this.status = 200;
+          this.responseText = 'DATA_MODE=SHAREPOINT';
+          this.onreadystatechange();
+        };
+      }
+    };
+    vm.createContext(ctx);
+    vm.runInContext(fs.readFileSync('js/data-service.js', 'utf8'), ctx);
+    return ctx.DataService;
+  }
+  const first = loadPage();
+  first.load(() => assert.fail('SharePoint should fail on test server'), () => {});
+  assert.equal(first.getMode(), 'SHAREPOINT');
+  assert.equal(first.getCurrentUser(), null);
+  first.setMode('CSV');
+  first.load(data => assert.equal(data.mode, 'CSV'), assert.fail);
+  assert.equal(first.getCurrentUser().id, 'csv-user-1');
+  const reloaded = loadPage();
+  reloaded.load(data => assert.equal(data.mode, 'CSV'), assert.fail);
+  assert.equal(reloaded.getCurrentUser().id, 'csv-user-1');
+});
+
+test('new registration without loaded user reports initialization failure, not ownership denial', () => {
+  const elements = { 'announcement-id': { value: '' }, 'form-message': {} };
+  const ctx = { DataService: { getCurrentUser: () => null }, document: { getElementById: id => elements[id] } };
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync('js/app.js', 'utf8').replace('global.onload = start;', 'global.saveTest = saveAnnouncement;'), ctx);
+  assert.equal(ctx.saveTest({ preventDefault() {} }), false);
+  assert.match(elements['form-message'].textContent, /読み込みが完了していない/);
+  assert.match(elements['form-message'].textContent, /CSVモード/);
+  assert.doesNotMatch(elements['form-message'].textContent, /修正する権限/);
+});
+
 test('CSV allows only own planned posts, with administrator override', () => {
   const d=service('CSV');
   assert(d.canManageAnnouncement({AuthorId:'alice'},'planned',false));

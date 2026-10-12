@@ -1045,7 +1045,11 @@
     if (filenamePending.some(function (value) { return value; })) {
       byId("form-message").textContent = "PDF名を変換中です。変換後にもう一度保存してください。"; return false;
     }
-    if (!DataService.getCurrentUser() || (id && (!announcement || !DataService.canManageAnnouncement(announcement, targetKind, adminActive)))) {
+    if (!DataService.getCurrentUser()) {
+      byId("form-message").textContent = "初期データまたは利用者情報の読み込みが完了していないため、登録できません。テスト用Webサイトでは「CSVモード」を選び「切替」を押してください。解消しない場合は右上の「診断」を確認してください。";
+      return false;
+    }
+    if (id && (!announcement || !DataService.canManageAnnouncement(announcement, targetKind, adminActive))) {
       byId("form-message").innerHTML = "この投稿を修正する権限がありません。";
       return false;
     }
@@ -1418,7 +1422,9 @@
   }
 
   function showError() {
-    byId("data-status").innerHTML = "接続失敗。データを表示できませんが、アプリは継続しています。";
+    var mode = DataService.getMode();
+    byId("data-mode-input").value = mode;
+    byId("data-status").textContent = mode === "SHAREPOINT" ? "SharePoint接続失敗。テスト用WebサイトではCSVモードを選び「切替」を押してください。" : "CSV読込失敗。右上の「診断」で設定ファイルとCSVの読込エラーを確認してください。";
     byId("planned-announcement-list").innerHTML = '<tr><td colspan="12" class="empty-row">データを表示できません。</td></tr>';
     byId("announcement-list").innerHTML = '<tr><td colspan="10" class="empty-row">データを表示できません。</td></tr>';
   }

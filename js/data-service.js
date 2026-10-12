@@ -8,6 +8,11 @@
   var selectedDatabase = "";
   var selectedFiscalYear = "";
   var currentUser = null;
+  var modeStorageKey = "kkk-data-mode:" + (global.location ? global.location.pathname : "");
+  try {
+    var savedMode = global.localStorage && global.localStorage.getItem(modeStorageKey);
+    if (savedMode === "CSV" || savedMode === "SHAREPOINT") { selectedMode = savedMode; }
+  } catch (ignore) {}
 
   var DATABASE_KEYS = ["KOKOKU", "KOUJI", "OP", "KOBO"];
 
@@ -175,6 +180,7 @@
       return false;
     }
     selectedMode = mode;
+    try { if (global.localStorage) { global.localStorage.setItem(modeStorageKey, mode); } } catch (ignore) {}
     if (currentConfig) {
       currentConfig.DATA_MODE = mode;
     }
