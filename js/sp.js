@@ -339,7 +339,38 @@
       var name = rawName.replace(/'/g, "''");
       var reader = new FileReader();
       reader.onload = function () {
-        request("POST", SP.api + "/web/GetFolderByServerRelativeUrl('" + folder + "')/Files/add(url='" + name + "',overwrite=true)", { "Accept": "application/json;odata=verbose", "X-RequestDigest": digest, "Content-Type": "application/octet-stream" }, reader.result, success, error);
+        var fileApi = SP.api + "/web/GetFolderByServerRelativeUrl('" + folder + "')/Files/getbyurl('" + name + "')";
+        function failed(stage, xhr) {
+          var message = "PDFはアップロード済みですが、" + stage + "に失敗しました。ファイル：" + rawName;
+          if (global.Diagnostics) { global.Diagnostics.error("PDF-CHECKIN", message, rawFolder + "/" + rawName); }
+          if (error) { error({status: xhr && xhr.status || 0, statusText: message + " / " + (xhr && xhr.statusText || "状態を確認できません"), responseText: xhr && xhr.responseText || ""}); }
+        }
+        function readJson(xhr) { var data = JSON.parse(xhr.responseText); return data.d || data; }
+        function state(ready) {
+          request("GET", fileApi + "?$select=CheckOutType", {"Accept":"application/json;odata=verbose", "Cache-Control":"no-cache"}, null, function (xhr) {
+            var value;
+            try { value = readJson(xhr).CheckOutType; } catch (ignore) { failed("チェックアウト状態の確認", xhr); return; }
+            if (value !== 0 && value !== 1 && value !== 2) { failed("チェックアウト状態の確認", xhr); return; }
+            ready(value);
+          }, function (xhr) { failed("チェックアウト状態の確認", xhr); });
+        }
+        request("POST", SP.api + "/web/GetFolderByServerRelativeUrl('" + folder + "')/Files/add(url='" + name + "',overwrite=true)", { "Accept": "application/json;odata=verbose", "X-RequestDigest": digest, "Content-Type": "application/octet-stream" }, reader.result, function (uploaded) {
+          state(function (checkout) {
+            if (checkout === 2) { if (success) { success(uploaded); } return; }
+            request("GET", fileApi + "/ListItemAllFields/ParentList?$select=EnableMinorVersions", {"Accept":"application/json;odata=verbose"}, null, function (xhr) {
+              var minor;
+              try { minor = readJson(xhr).EnableMinorVersions; } catch (ignore) { failed("バージョン設定の確認", xhr); return; }
+              if (typeof minor !== "boolean") { failed("バージョン設定の確認", xhr); return; }
+              request("POST", fileApi + "/CheckIn(comment='PDF upload',checkintype=" + (minor ? "0" : "1") + ")", {"Accept":"application/json;odata=verbose", "X-RequestDigest":digest}, null, function () {
+                state(function (after) {
+                  if (after !== 2) { failed("チェックイン完了の確認", null); return; }
+                  if (global.Diagnostics) { global.Diagnostics.log("PDF-CHECKIN", "PDFをチェックインしました。", rawName); }
+                  if (success) { success(uploaded); }
+                });
+              }, function (failure) { failed("自動チェックイン", failure); });
+            }, function (failure) { failed("バージョン設定の確認", failure); });
+          });
+        }, error);
       };
       reader.onerror = function () {
         if (global.Diagnostics) {
