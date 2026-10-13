@@ -13,6 +13,11 @@
   var preservePlannedOrder = false;
   var editingList = "planned";
   var selectedPdfFiles = {};
+  var csvDatabaseSnapshots = {};
+  function databaseSnapshot() {
+    return { database: DataService.getDatabase(), announcements: plannedAnnouncements, links: plannedLinks,
+      publishedAnnouncements: allAnnouncements, publishedLinks: allLinks, settings: allSettings, pdfFiles: selectedPdfFiles };
+  }
   var filenameGenerationSequences = [];
   var filenameDirty = [];
   var filenamePending = [];
@@ -521,13 +526,13 @@
     return PublicationWorkflow.candidate(announcements, links, DataService.getPublicationConfig(year).endedUrl);
   }
 
-  function saveWorkflowItem(item, patch, success, error) {
+  function saveWorkflowItem(item, patch, success, error, database) {
     var key;
     if (DataService.isSharePoint()) {
       DataService.update("announcements", item.Id || item.ID, patch, function () {
         for (key in patch) { if (patch.hasOwnProperty(key)) { item[key] = patch[key]; } }
         success();
-      }, error);
+      }, error, database);
     } else {
       for (key in patch) { if (patch.hasOwnProperty(key)) { item[key] = patch[key]; } }
       unsaved = true;
@@ -1459,6 +1464,11 @@
   }
 
   function applyLoadedData(data) {
+    if (!DataService.isSharePoint() && csvDatabaseSnapshots[data.database]) {
+      var cached = csvDatabaseSnapshots[data.database];
+      cached.mode = data.mode; cached.databaseName = data.databaseName;
+      data = cached; selectedPdfFiles = cached.pdfFiles || {}; unsaved = true;
+    }
     deactivateAdmin();
     preserveAnnouncementOrder = true;
     preservePlannedOrder = true;
@@ -1508,6 +1518,7 @@
 
   function switchDatabase() {
     if (!mayLeave()) { return; }
+    if (!DataService.isSharePoint()) { csvDatabaseSnapshots[DataService.getDatabase()] = databaseSnapshot(); }
     pendingSave = null;
     var database = byId("database-input").value;
     if (!DataService.setDatabase(database)) {
@@ -1689,71 +1700,93 @@
 
   function exportZip(fullData) {
     if (workflowBusy || pendingSave) { return; }
-    byId("zip-message").textContent = "ZIPを作成しています...";
-    var data;
-    try { data = publicationData(activeFiscalYear); }
-    catch (error) { byId("zip-message").textContent = "ZIPを作成できません。" + error.message; return; }
-    var invalidLink = data.links.filter(function (entry) {
-      var owner = announcementById(entry.KokokuID, allAnnouncements);
-      if (entry.Type === "掲載終了" || (!fullData && (!owner || owner.Status !== "公開待ち"))) { return false; }
-      return entry.URL && (!/^R[1-9][0-9]*\//i.test(entry.URL) || /(?:^|\/)\.\.(?:\/|$)/.test(entry.URL));
-    })[0];
-    if (invalidLink) { byId("zip-message").textContent = "ZIPを作成できません。公開用PDFの相対パスを確認してください。公告ID=" + invalidLink.KokokuID + " / " + invalidLink.URL; return; }
-    var htmlPath = DataService.getPublicHtmlPath(activeFiscalYear).replace(/^nafin\//i, "");
-    var zipName = DataService.getPublicHtmlFileName(activeFiscalYear).replace(/\.html$/i, "") + (fullData ? "_full.zip" : "_update.zip");
-    var html;
-    try { html = HtmlExport.create(data.announcements, data.links, allSettings, activeFiscalYear); }
-    catch (error) { byId("zip-message").textContent = "ZIPを作成できません。" + error.message; return; }
-    var files = [{ name: htmlPath, content: html }];
-    var reads = [];
-    var zipStarted = false;
-    function createZip() {
-      if (zipStarted) { return; }
-      zipStarted = true;
-      saveProgress("ZIPファイルを圧縮・作成中です。画面を閉じずにお待ちください。", false);
-      ZipExport.create(files, function (blob) {
-        try { downloadBlob(zipName, blob); } catch (error) { workflowBusy = false; byId("zip-message").textContent = "ZIPのダウンロードに失敗しました。公開状態は変更していません。"; saveProgress(byId("zip-message").textContent, true); return; }
-        var tasks = [];
-        data.announcements.forEach(function (candidate) {
-          var item = announcementById(candidate.ID, allAnnouncements);
-          var patch = { Status: candidate.Status, PublicState: PublicationWorkflow.state(candidate), Category: candidate.Category };
-          if (Object.keys(patch).some(function (key) { return String(item[key] || "") !== String(patch[key]); })) {
-            tasks.push(function (ok, fail) { saveWorkflowItem(item, patch, ok, fail); });
-          }
-        });
-        runSave(tasks, function () { unsaved = !DataService.isSharePoint(); filterAnnouncements(); byId("zip-message").textContent = zipName + "を出力し、対象を公開済みにしました。" + (DataService.isSharePoint() ? "" : "状態を残す場合はCSVも出力してください。"); saveProgress(byId("zip-message").textContent, true); }, "ZIP公開状態の保存");
-      }, function () { workflowBusy = false; byId("zip-message").textContent = "PDFの読込に失敗しました。ZIPは作成していません。"; saveProgress(byId("zip-message").textContent, true); });
-    }
-    data.links.forEach(function (link) {
-      var sourceItem = announcementById(link.KokokuID, allAnnouncements);
-      if (link.Type === "掲載終了" || (!fullData && (!sourceItem || sourceItem.Status !== "公開待ち"))) { return; }
-      var file = selectedPdfFiles[pdfKey("published", link.ID)];
-      if (!file && !DataService.isSharePoint()) { return; }
-      var name = link.FileName || fileNameFromUrl(link.URL) || (file && file.name);
-      var entry = {name: (link.URL || DataService.getPublicationConfig(activeFiscalYear).pdfRoot + "/" + name).replace(/^nafin\//i, ""), file: file};
-      files.push(entry);
-      if (!file) { reads.push({link:link, entry:entry}); }
-    });
     workflowBusy = true;
-    byId("zip-message").textContent = "ZIPの構造を確認してください。まだ作成していません。";
-    ZipPreview.open(zipName, files, fullData, function () {
-      var index = 0;
-      function next() {
-        saveProgress("ZIP作成中：PDF取得 " + index + " / " + reads.length + "件。画面を閉じずにお待ちください。", false);
-        if (index === reads.length) { createZip(); return; }
-        var task = reads[index];
-        DataService.readPdf(task.link, function (blob) { task.entry.file = blob; index += 1; next(); }, function () {
-          workflowBusy = false;
-          var message = "PDFを読み込めません。ZIPは作成していません。公告ID=" + task.link.KokokuID + " / " + task.entry.name;
-          byId("zip-message").textContent = message;
-          saveProgress(message, true);
-        });
-      }
-      next();
-    }, function () {
+    byId("zip-message").textContent = "全DBのデータを読み込んでいます...";
+    var snapshots = {}, current = databaseSnapshot();
+    if (!DataService.isSharePoint()) {
+      Object.keys(csvDatabaseSnapshots).forEach(function (key) { snapshots[key] = csvDatabaseSnapshots[key]; });
+    }
+    snapshots[current.database] = current;
+    function fail(error) {
       workflowBusy = false;
-      byId("zip-message").textContent = "ZIP作成をキャンセルしました。公開状態は変更していません。";
-    });
+      var message = "ZIPを作成できません。" + (error.message || String(error));
+      byId("zip-message").textContent = message;
+      saveProgress(message, true);
+    }
+    DataService.loadPublicationDatabases(snapshots, function (databases) {
+      var files = [], reads = [], publications = [];
+      var zipName = activeFiscalYear + "_all" + (fullData ? "_full.zip" : "_update.zip");
+      try {
+        databases.forEach(function (db) {
+          var rows = (db.publishedAnnouncements || []).filter(function (item) { return itemFiscalYear(item) === activeFiscalYear; });
+          rows.sort(function (a, b) { return Number(a.Sort || 0) - Number(b.Sort || 0); });
+          var ids = rows.map(function (item) { return String(item.ID); });
+          var links = (db.publishedLinks || []).filter(function (link) { return ids.indexOf(String(link.KokokuID)) >= 0; });
+          var config = DataService.getPublicationConfig(activeFiscalYear, db.database);
+          var data = PublicationWorkflow.candidate(rows, links, config.endedUrl);
+          publications.push({ db: db, data: data, rows: rows });
+          if (!DataService.isSharePoint()) { csvDatabaseSnapshots[db.database] = db; }
+          files.push({ name: DataService.getPublicHtmlPath(activeFiscalYear, db.database).replace(/^nafin\//i, ""),
+            content: HtmlExport.create(data.announcements, data.links, db.settings || [], activeFiscalYear) });
+          data.links.forEach(function (link) {
+            var owner = announcementById(link.KokokuID, rows);
+            if (link.Type === "掲載終了" || (!fullData && (!owner || owner.Status !== "公開待ち"))) { return; }
+            if (link.URL && (!/^R[1-9][0-9]*\//i.test(link.URL) || /(?:^|\/)\.\.(?:\/|$)/.test(link.URL))) {
+              throw new Error(db.database + "：公開用PDFの相対パスを確認してください。公告ID=" + link.KokokuID + " / " + link.URL);
+            }
+            var file = (db.pdfFiles || {})[pdfKey("published", link.ID)];
+            if (!file && !DataService.isSharePoint()) { return; }
+            var name = link.FileName || fileNameFromUrl(link.URL) || (file && file.name);
+            var entry = { name: (link.URL || config.pdfRoot + "/" + name).replace(/^nafin\//i, ""), file: file };
+            files.push(entry);
+            if (!file) { reads.push({ database: db.database, link: link, entry: entry }); }
+          });
+        });
+      } catch (error) { fail(error); return; }
+      var zipStarted = false;
+      function createZip() {
+        if (zipStarted) { return; }
+        zipStarted = true;
+        saveProgress("ZIPファイルを圧縮・作成中です。画面を閉じずにお待ちください。", false);
+        ZipExport.create(files, function (blob) {
+          try { downloadBlob(zipName, blob); }
+          catch (error) { fail(new Error("ZIPのダウンロードに失敗しました。公開状態は変更していません。")); return; }
+          var tasks = [];
+          publications.forEach(function (publication) {
+            publication.data.announcements.forEach(function (candidate) {
+              var item = announcementById(candidate.ID, publication.rows);
+              var patch = { Status: candidate.Status, PublicState: PublicationWorkflow.state(candidate), Category: candidate.Category };
+              if (Object.keys(patch).some(function (key) { return String(item[key] || "") !== String(patch[key] || ""); })) {
+                var task = function (ok, failed) { saveWorkflowItem(item, patch, ok, failed, publication.db.database); };
+                task.phase = publication.db.database + "：公開状態の保存";
+                tasks.push(task);
+              }
+            });
+          });
+          runSave(tasks, function () {
+            unsaved = !DataService.isSharePoint(); filterAnnouncements();
+            byId("zip-message").textContent = zipName + "を出力し、全DBの対象を公開済みにしました。" +
+              (DataService.isSharePoint() ? "" : "状態を残す場合は各DBへ切り替えてCSVも出力してください。");
+          }, "全DBのZIP公開状態の保存");
+        }, function () { fail(new Error("PDFの読込に失敗しました。公開状態は変更していません。")); });
+      }
+      byId("zip-message").textContent = "全DBのZIPの構造を確認してください。まだ作成していません。";
+      ZipPreview.open(zipName, files, fullData, function () {
+        var index = 0;
+        function next() {
+          saveProgress("ZIP作成中：PDF取得 " + index + " / " + reads.length + "件。画面を閉じずにお待ちください。", false);
+          if (index === reads.length) { createZip(); return; }
+          var task = reads[index];
+          DataService.readPdf(task.link, function (blob) { task.entry.file = blob; index += 1; next(); }, function () {
+            fail(new Error(task.database + "：PDFを読み込めません。公告ID=" + task.link.KokokuID + " / " + task.entry.name));
+          }, task.database);
+        }
+        next();
+      }, function () {
+        workflowBusy = false;
+        byId("zip-message").textContent = "ZIP作成をキャンセルしました。公開状態は変更していません。";
+      });
+    }, fail);
   }
 
   function toggleDateSort() {

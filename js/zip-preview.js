@@ -35,7 +35,8 @@
     box.setAttribute("role", "dialog"); box.setAttribute("aria-modal", "true"); box.setAttribute("aria-label", "ZIPの構造確認");
     var title = doc.createElement("h2"); title.textContent = "ZIPの構造確認"; box.appendChild(title);
     var summary = doc.createElement("p");
-    summary.textContent = (full ? "全データZIP" : "更新分ZIP") + "：HTML 1件 ／ PDF " + (files.length - 1) + "件。HTMLは一覧全体、PDFは" + (full ? "出力対象全件" : "公開待ちの公告分") + "です。";
+    var htmlCount = files.filter(function (file) { return /\.html$/i.test(file.name); }).length;
+    summary.textContent = (full ? "全データZIP" : "更新分ZIP") + "（全DB）：HTML " + htmlCount + "件 ／ PDF " + (files.length - htmlCount) + "件。HTMLは各DBの一覧全体、PDFは" + (full ? "出力対象全件" : "公開待ちの公告分") + "です。";
     box.appendChild(summary);
     var area = doc.createElement("textarea"); area.readOnly = true; area.setAttribute("aria-label", "ZIP内のディレクトリ構造");
     area.style.cssText = "width:100%;height:45vh;white-space:pre;overflow:auto;font-family:Consolas,Meiryo,monospace;";

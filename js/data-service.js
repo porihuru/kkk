@@ -100,7 +100,7 @@
     request.send(null);
   }
 
-  function loadSharePoint(config, success, error) {
+  function loadSharePoint(config, success, error, reuseConnection) {
     var result = {};
     var remaining = 4;
     var failed = false;
@@ -129,7 +129,7 @@
         success(result);
       }
     }
-    SP.init(config.WEB_ROOT);
+    if (!reuseConnection) { SP.init(config.WEB_ROOT); }
     SP.getCurrentUser(function (user) { loaded("currentUser", user); }, fail);
     if (global.Diagnostics) {
       global.Diagnostics.log("SHAREPOINT", "SharePoint接続を開始しました。", "WEB_ROOT=" + String(config.WEB_ROOT || "AUTO"));
@@ -145,6 +145,9 @@
     currentUser = null;
     readConfig(function (config) {
       currentDatabase = databaseConfig(config);
+      var scopedConfig = {};
+      Object.keys(config).forEach(function (key) { scopedConfig[key] = config[key]; });
+      config = scopedConfig;
       config.SETTINGS_LIST = currentDatabase.settingsList;
       config.ANNOUNCEMENT_LIST = currentDatabase.announcementList;
       config.LINK_LIST = currentDatabase.linkList;
@@ -172,6 +175,32 @@
         }, error, currentDatabase);
       }
     }, error);
+  };
+
+  // Load ZIP sources without changing the selected database, year or current user.
+  DataService.loadPublicationDatabases = function (snapshots, success, error) {
+    var result = [], index = 0;
+    function next() {
+      if (index === DATABASE_KEYS.length) { success(result); return; }
+      var key = DATABASE_KEYS[index++];
+      if (snapshots[key]) { result.push(snapshots[key]); next(); return; }
+      var paths = databaseConfig(currentConfig || {}, key);
+      function loaded(data) { data.database = key; data.databaseName = paths.name; result.push(data); next(); }
+      function failed() { error(new Error(paths.name + "の読み込みに失敗しました。")); }
+      if (!DataService.isSharePoint()) { CsvData.load(loaded, failed, paths); return; }
+      var config = {};
+      Object.keys(currentConfig).forEach(function (name) { config[name] = currentConfig[name]; });
+      config.SETTINGS_LIST = paths.settingsList;
+      config.ANNOUNCEMENT_LIST = paths.announcementList;
+      config.LINK_LIST = paths.linkList;
+      loadSharePoint(config, function (data) {
+        data.publishedAnnouncements = data.announcements.filter(function (item) { return item.ListKind === "published"; });
+        var ids = data.publishedAnnouncements.map(function (item) { return String(item.ID); });
+        data.publishedLinks = data.links.filter(function (link) { return ids.indexOf(String(link.KokokuID)) >= 0; });
+        loaded(data);
+      }, failed, true);
+    }
+    next();
   };
 
   DataService.setMode = function (mode) {

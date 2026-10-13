@@ -14,7 +14,7 @@ function fixture(full, failId, cancel) {
   const links = rows.map(x=>({ID:x.ID,KokokuID:x.ID,URL:'R8/be/'+x.ID+'.pdf',FileName:x.ID+'.pdf',Type:x.Category==='結果'?'結果':'公告'}));
   links[1].URL='/na/na/NAFin-WorkingData/koukoku/Documents/nafin/R8/be/2.pdf';
   const context = {document:{getElementById:id=>elements[id]||(elements[id]={style:{}})},
-    DataService:{isSharePoint:()=>true,getPublicationConfig:()=>({endedUrl:'R8/4/end.pdf'}),getPublicHtmlPath:()=> 'nafin/R8.html',getPublicHtmlFileName:()=> 'R8.html',
+    DataService:{getDatabase:()=> 'KOKOKU',loadPublicationDatabases:(snapshots,ok)=>ok([snapshots.KOKOKU]),isSharePoint:()=>true,getPublicationConfig:()=>({endedUrl:'R8/4/end.pdf'}),getPublicHtmlPath:()=> 'nafin/R8.html',getPublicHtmlFileName:()=> 'R8.html',
       readPdf:(link,ok,fail)=>{reads.push(link.ID);if(link.ID===failId)fail();else ok({});}},
     HtmlExport:{create:(items, publicLinks)=>{assert.equal(items.length,4);assert.equal(publicLinks.find(x=>x.ID==='2').URL,'R8/be/2.pdf');return 'all announcements';}},
     ZipPreview:{open:(name,files,full,yes,no)=>{assert.equal(reads.length,0);assert.equal(archives.length,0);if(cancel)no();else yes();}},

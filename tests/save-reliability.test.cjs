@@ -87,7 +87,7 @@ test('Moving a new announcement waits for ZIP success before publication; ZIP fa
   const elements = {};
   let zipSuccess, zipFailure;
   const context = { Blob, navigator:{msSaveBlob:()=>{}}, document:{getElementById:id=>elements[id]||(elements[id]={style:{}})},
-    DataService:{isSharePoint:()=>false,getPublicHtmlPath:()=> 'nafin/R8open.html',getPublicHtmlFileName:()=> 'R8open.html',getPublicationConfig:()=>({endedUrl:'R8/4/end.pdf'})},
+    DataService:{getDatabase:()=> 'OP',loadPublicationDatabases:(snapshots,ok)=>ok([snapshots.OP]),isSharePoint:()=>false,getPublicHtmlPath:()=> 'nafin/R8open.html',getPublicHtmlFileName:()=> 'R8open.html',getPublicationConfig:()=>({endedUrl:'R8/4/end.pdf'})},
     ZipPreview:{open:(name,files,full,yes)=>yes()}, HtmlExport:{create:()=>'<html></html>'}, ZipExport:{create:(files,ok,fail)=>{assert.equal(files[0].name,'R8open.html');zipSuccess=ok;zipFailure=fail;}} };
   vm.createContext(context);vm.runInContext(fs.readFileSync('js/publication-workflow.js','utf8'),context);
   vm.runInContext(fs.readFileSync('js/app.js','utf8').replace('global.onload = start;', `global.testFlow = { move: moveAnnouncement, zip: exportZip, setup: function(item) { adminActive=true; activeFiscalYear="R8"; filterAnnouncements=function(){}; plannedAnnouncements=[item]; plannedLinks=[{ID:'1',KokokuID:item.ID,Text:'PDF',URL:'R8/op/a.pdf'}]; }, items:function(){return allAnnouncements;} };`),context);
