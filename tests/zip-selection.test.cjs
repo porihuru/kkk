@@ -32,7 +32,7 @@ test('update ZIP skips historical result PDFs, reads pending announcement and re
   const s=fixture(false,'1');
   assert.deepEqual(s.reads,['2','3']);
   assert.equal(s.archives.length,1);
-  assert.deepEqual(Array.from(s.archives[0],x=>x.name),['nafin/R8.html','nafin/R8/be/2.pdf','nafin/R8/be/3.pdf']);
+  assert.deepEqual(Array.from(s.archives[0],x=>x.name),['R8.html','R8/be/2.pdf','R8/be/3.pdf']);
 });
 test('full ZIP reads all non-ended PDFs',()=>{
   const s=fixture(true);

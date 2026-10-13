@@ -1668,7 +1668,7 @@
       return entry.URL && (!/^R[1-9][0-9]*\//i.test(entry.URL) || /(?:^|\/)\.\.(?:\/|$)/.test(entry.URL));
     })[0];
     if (invalidLink) { byId("zip-message").textContent = "ZIPを作成できません。公開用PDFの相対パスを確認してください。公告ID=" + invalidLink.KokokuID + " / " + invalidLink.URL; return; }
-    var htmlPath = DataService.getPublicHtmlPath(activeFiscalYear);
+    var htmlPath = DataService.getPublicHtmlPath(activeFiscalYear).replace(/^nafin\//i, "");
     var zipName = DataService.getPublicHtmlFileName(activeFiscalYear).replace(/\.html$/i, "") + (fullData ? "_full.zip" : "_update.zip");
     var html;
     try { html = HtmlExport.create(data.announcements, data.links, allSettings, activeFiscalYear); }
@@ -1698,7 +1698,7 @@
       var file = selectedPdfFiles[pdfKey("published", link.ID)];
       if (!file && !DataService.isSharePoint()) { return; }
       var name = link.FileName || fileNameFromUrl(link.URL) || (file && file.name);
-      var entry = {name: "nafin/" + (link.URL || DataService.getPublicationConfig(activeFiscalYear).pdfRoot + "/" + name), file: file};
+      var entry = {name: (link.URL || DataService.getPublicationConfig(activeFiscalYear).pdfRoot + "/" + name).replace(/^nafin\//i, ""), file: file};
       files.push(entry);
       if (!file) { reads.push({link:link, entry:entry}); }
     });
