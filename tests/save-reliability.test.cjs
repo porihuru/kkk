@@ -5,7 +5,7 @@ const vm = require('node:vm');
 
 function appContext() {
   const elements = {};
-  const context = { document: { getElementById: id => elements[id] || (elements[id] = {}) } };
+  const context = { document: { getElementById: id => elements[id] || (elements[id] = {style:{}}) } };
   vm.createContext(context);
   vm.runInContext(fs.readFileSync('js/app.js', 'utf8').replace('global.onload = start;', 'global.testing = { run: runSave, retry: function () { pendingSave(); }, busy: function () { return workflowBusy; }, dirty: function () { return unsaved; } };'), context);
   return { api: context.testing, elements };

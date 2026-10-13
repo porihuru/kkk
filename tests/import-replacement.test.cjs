@@ -32,7 +32,7 @@ test('cancel never deletes; failure stops before additions and retry resumes the
  const cancelled=setup(false);cancelled.context.runImport(cancelled.data);assert.equal(cancelled.calls.length,0);
  const s=setup();s.context.runImport(s.data);s.queue.shift().fail('通信エラー');
  assert.match(s.elements['save-progress-message'].textContent,/エラーで停止/);
- assert.equal(s.elements['save-progress-close'].style.display,'none');
+ assert.equal(s.elements['save-progress-close'].style.display,'inline-block');
  s.elements['save-progress-retry'].onclick();
  assert.deepEqual(s.calls[1],s.calls[0]);
  while(s.queue.length)s.queue.shift().ok();

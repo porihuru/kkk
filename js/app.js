@@ -27,18 +27,41 @@
   function mayLeave() {
     return !workflowBusy && ((!unsaved && !Object.keys(selectedPdfFiles).length) || window.confirm("未保存の変更または選択PDFがあります。出力していない内容は失われます。切り替えますか？"));
   }
+  var progressGuardInstalled = false;
+  var progressPreviousFocus = null;
   function saveProgress(message, finished, retry) {
     var panel = byId("save-progress");
     if (!panel) { return; }
+    if (panel.style.display !== "block") { progressPreviousFocus = document.activeElement; }
     panel.style.display = "block";
+    if (!progressGuardInstalled && document.addEventListener) {
+      progressGuardInstalled = true;
+      function guard(event) {
+        if (panel.style.display !== "block") { return; }
+        var inside = panel.contains(event.target);
+        if (!inside || (event.type === "keydown" && (event.key === "Tab" || event.keyCode === 9))) {
+          if (event.preventDefault) { event.preventDefault(); }
+          if (event.stopImmediatePropagation) { event.stopImmediatePropagation(); }
+          var retryButton = byId("save-progress-retry");
+          var closeButton = byId("save-progress-close");
+          var target = retryButton.style.display !== "none" ? retryButton : closeButton.style.display !== "none" ? closeButton : panel;
+          if (inside && event.target === retryButton && closeButton.style.display !== "none") { target = closeButton; }
+          if (target.focus) { target.focus(); }
+        }
+      }
+      ["click", "mousedown", "keydown", "focusin"].forEach(function (type) { document.addEventListener(type, guard, true); });
+    }
+    if (panel.setAttribute) { panel.setAttribute("tabindex", "-1"); panel.setAttribute("aria-busy", finished || retry ? "false" : "true"); }
+    if (panel.focus && (!panel.contains || !panel.contains(document.activeElement))) { panel.focus(); }
     byId("save-progress-message").textContent = message;
     byId("save-progress-close").style.display = finished ? "inline-block" : "none";
-    byId("save-progress-close").onclick = function () { panel.style.display = "none"; };
+    byId("save-progress-close").onclick = function () { panel.style.display = "none"; if (progressPreviousFocus && progressPreviousFocus.focus) { progressPreviousFocus.focus(); } };
     byId("save-progress-retry").style.display = retry ? "inline-block" : "none";
     byId("save-progress-retry").onclick = retry || null;
   }
   function runSave(tasks, done, progressTitle) {
     var index = 0;
+    progressTitle = progressTitle || "SharePointへの保存";
     unsaved = true;
     function resume() {
       workflowBusy = true;
@@ -57,7 +80,7 @@
           workflowBusy = false; pendingSave = resume;
           byId("retry-save").disabled = false;
           byId("form-message").textContent = typeof failureMessage === "string" ? failureMessage : "未保存：保存に失敗しました。変更は保持しています。「再保存」を押してください。競合時はCSVを退避して再読込してください。";
-          if (progressTitle) { saveProgress(progressTitle + "：エラーで停止しています。完了 " + index + " / " + tasks.length + "件。" + byId("form-message").textContent, false, resume); }
+          if (progressTitle) { saveProgress(progressTitle + "：エラーで停止しています。完了 " + index + " / " + tasks.length + "件。" + byId("form-message").textContent, true, resume); }
         }
         try { tasks[index](function () { if (settled) { return; } settled = true; index += 1; next(); }, failed); }
         catch (error) { failed("処理に失敗しました：" + (error.message || String(error))); }
@@ -887,7 +910,11 @@
     payload.ListKind = kind;
     links.forEach(function (link) {
       var file = selectedFiles[pdfKey(kind, link.ID)] || selectedPdfFiles[pdfKey(kind, link.ID)];
-      if (file) { tasks.push(function (ok, fail) { DataService.uploadPdf(file, link.FileName || fileNameFromUrl(link.URL), ok, fail, isResultWork(announcement) ? "結果PDF" : "公告PDF", itemFiscalYear(announcement)); }); }
+      if (file) {
+        var uploadTask = function (ok, fail) { DataService.uploadPdf(file, link.FileName || fileNameFromUrl(link.URL), ok, fail, isResultWork(announcement) ? "結果PDF" : "公告PDF", itemFiscalYear(announcement)); };
+        uploadTask.phase = "PDFアップロード・チェックイン確認中：" + (link.FileName || fileNameFromUrl(link.URL));
+        tasks.push(uploadTask);
+      }
     });
     tasks.push(function (ok, fail) {
       if (isNew && !announcement.Id) {
@@ -902,12 +929,14 @@
         });
       } else { DataService.update("announcements", announcement.Id || announcement.ID, payload, ok, fail); }
     });
+    tasks[tasks.length - 1].phase = "公告情報を保存中";
     links.forEach(function (link) {
       tasks.push(function (ok, fail) {
         var data = { KokokuID: String(announcement.Id || announcement.ID), Text: link.Text, FileName: link.FileName, URL: link.URL, Type: link.Type, Sort: String(link.Sort || "") };
         if (link.Id) { DataService.update("links", link.Id, data, ok, fail); }
         else { DataService.add("links", data, function (saved) { link.Id = saved.Id || saved.ID; ok(); }, fail); }
       });
+      tasks[tasks.length - 1].phase = "PDFリンクを保存中：" + (link.Text || link.FileName || "");
     });
     (removedLinks || []).forEach(function (link) { tasks.push(function (ok, fail) { DataService.remove("links", link.Id || link.ID, ok, fail); }); });
     runSave(tasks, function () { filterAnnouncements(); byId("form-message").textContent = isResultWork(announcement) ? "結果・リンク・PDFをSharePointへ保存しました。" : "公告・リンク・PDFをSharePointへ保存しました。"; });
@@ -1594,9 +1623,11 @@
     link = document.createElement("a");
     link.href = window.URL.createObjectURL(blob);
     link.download = fileName;
-    document.body.appendChild(link);
+    var progress = byId("save-progress");
+    var downloadParent = progress && progress.style.display === "block" ? progress : document.body;
+    downloadParent.appendChild(link);
     link.click();
-    document.body.removeChild(link);
+    downloadParent.removeChild(link);
     window.setTimeout(function () {
       window.URL.revokeObjectURL(link.href);
     }, 100);
@@ -1679,6 +1710,7 @@
     function createZip() {
       if (zipStarted) { return; }
       zipStarted = true;
+      saveProgress("ZIPファイルを圧縮・作成中です。画面を閉じずにお待ちください。", false);
       ZipExport.create(files, function (blob) {
         try { downloadBlob(zipName, blob); } catch (error) { workflowBusy = false; byId("zip-message").textContent = "ZIPのダウンロードに失敗しました。公開状態は変更していません。"; saveProgress(byId("zip-message").textContent, true); return; }
         var tasks = [];
