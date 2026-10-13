@@ -1,14 +1,14 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 function upload(options={}) {
  const calls=[];let success=0,error=null,states=0;
- const context={window:{location:{pathname:'/site/app/index.html'}}};
+ const context={setTimeout:fn=>fn(),window:{location:{pathname:'/site/app/index.html'}}};
  context.FileReader=function(){this.result=new ArrayBuffer(2);};context.FileReader.prototype.readAsArrayBuffer=function(){this.onload();};
  context.XMLHttpRequest=function(){
   this.open=(method,url)=>{this.method=method;this.url=url;};this.setRequestHeader=()=>{};
   this.send=()=>{
    calls.push([this.method,this.url]);this.status=200;
    let data={};
-   if(this.url.includes('?$select=CheckOutType')){states++;data={CheckOutType:options.none?2:states===1?0:options.stillOut?0:2};if(options.badState)data={};}
+   if(this.url.includes('?$select=CheckOutType')){states++;data={CheckOutType:options.none?2:states <= (options.delay || 1)?0:options.stillOut?0:2};if(options.badState)data={};}
    if(this.url.includes('ParentList'))data={EnableMinorVersions:!!options.minor};
    if(this.url.includes('/CheckIn(')&&options.failCheckin)this.status=403;
    if(this.url.includes('/Files/add')&&options.failUpload)this.status=403;
@@ -33,3 +33,15 @@ test('checkin failure, malformed status and persistent checkout never report suc
  for(const options of [{failCheckin:true},{badState:true},{stillOut:true}]){const r=upload(options);assert.equal(r.success,0);assert.match(r.error.statusText,/test.pdf/);}
 });
 test('upload failure does not attempt checkin',()=>{const r=upload({failUpload:true});assert.equal(r.calls.length,1);assert.equal(r.success,0);assert.equal(r.error.status,403);});
+
+test('delayed checkin state is retried with fresh URLs',()=>{
+ const r=upload({delay:3});assert.equal(r.success,1);
+ const reads=r.calls.filter(c=>c[1].includes('CheckOutType'));
+ assert.equal(reads.length,4);assert.equal(new Set(reads.map(c=>c[1])).size,4);
+ assert.equal(r.calls.filter(c=>c[1].includes('/CheckIn(')).length,1);
+});
+test('persistent checkout preserves response status and observed state',()=>{
+ const r=upload({stillOut:true});assert.equal(r.error.status,200);
+ assert.equal(r.error.uploaded,true);assert.match(r.error.statusText,/CheckOutType=0/);
+ assert.equal(r.calls.filter(c=>c[1].includes('CheckOutType')).length,5);
+});

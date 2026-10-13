@@ -361,7 +361,9 @@
   function pdfUploadFailureDetail(request, folder, fileName, file) {
     var status = request && typeof request.status !== "undefined" ? String(request.status) : "?";
     var reason;
-    if (status === "401" || status === "403") {
+    if (request && request.uploaded) {
+      reason = "PDF本体のアップロードは完了しています。SharePointで対象ファイルのチェックアウト状態とチェックイン権限を確認してください。";
+    } else if (status === "401" || status === "403") {
       reason = "SharePointへのログイン状態、またはPDF保存フォルダーの書き込み権限を確認してください。";
     } else if (status === "404") {
       reason = "設定したPDF保存フォルダーが存在するか確認してください。";
@@ -376,7 +378,7 @@
     } else {
       reason = "SharePointの応答とPDF保存先の制約を確認してください。";
     }
-    return "HTTP " + status + (request && request.statusText ? " " + request.statusText : "") +
+    return (request && request.uploaded ? "チェックイン確認" + (status !== "?" ? " / 応答HTTP " + status : "") : "HTTP " + status) + (request && request.statusText ? " " + request.statusText : "") +
       "\r\nFile=" + String(fileName || (file && file.name) || "不明") +
       " / Size=" + (file && typeof file.size === "number" ? file.size + " bytes" : "不明") +
       "\r\nFolder=" + (folder || "未設定") + "\r\n" + reason;
@@ -440,8 +442,8 @@
       if (success) { success(result); }
     }, function (request) {
       var detail = pdfUploadFailureDetail(request, folder, fileName, file);
-      if (global.Diagnostics) { global.Diagnostics.error("PDF-UPLOAD", label + "をアップロードできませんでした。", detail); }
-      if (global.ErrorNotice) { global.ErrorNotice.notify(label + "をSharePointへ保存できませんでした。変更は保持しています。右上の「診断」で原因を確認し、「再保存」を押してください。"); }
+      if (global.Diagnostics) { global.Diagnostics.error("PDF-UPLOAD", request && request.uploaded ? label + "はアップロード済みですが、チェックインを確認できませんでした。" : label + "をアップロードできませんでした。", detail); }
+      if (global.ErrorNotice) { global.ErrorNotice.notify(request && request.uploaded ? label + "本体はアップロード済みですが、チェックインを確認できませんでした。変更は保持しています。右上の「診断」とSharePointの対象ファイルを確認してください。" : label + "をSharePointへ保存できませんでした。変更は保持しています。右上の「診断」で原因を確認し、「再保存」を押してください。"); }
       if (error) { error(request); }
     });
   };

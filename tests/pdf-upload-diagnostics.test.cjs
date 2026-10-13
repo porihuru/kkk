@@ -134,3 +134,12 @@ test('PDF upload permission failure is recorded with an actionable cause and vis
   assert.match(error.detail, /書き込み権限/);
   assert(state.records.some(record => record.level === 'NOTICE' && /診断/.test(record.message)));
 });
+
+test('post-upload verification failure is not reported as a CORS or upload failure',()=>{
+ const state=sharePointService({uploaded:true,status:200,statusText:'CheckOutType=0'});
+ state.context.DataService.uploadPdf({name:'notice.pdf',size:20},'notice.pdf',assert.fail,()=>{});
+ const record=state.records.find(r=>r.level==='ERROR');
+ assert.match(record.message,/アップロード済み/);assert.match(record.detail,/CheckOutType=0/);
+ assert.doesNotMatch(record.detail,/CORS|HTTP 0/);
+ assert(state.records.some(r=>r.level==='NOTICE'&&/本体はアップロード済み/.test(r.message)));
+});
