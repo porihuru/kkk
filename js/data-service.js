@@ -26,8 +26,8 @@
     return false;
   }
 
-  function databaseConfig(config) {
-    var key = selectedDatabase || String(config.DEFAULT_DATABASE || "KOKOKU").toUpperCase();
+  function databaseConfig(config, database) {
+    var key = database || selectedDatabase || String(config.DEFAULT_DATABASE || "KOKOKU").toUpperCase();
     var prefix;
     if (!hasDatabaseKey(key)) {
       key = "KOKOKU";
@@ -228,17 +228,18 @@
     return kind === "planned" && String(item.AuthorId || "") !== "" && String(item.AuthorId) === currentUser.id;
   };
 
-  DataService.getPublicationConfig = function (fiscalYear) {
+  DataService.getPublicationConfig = function (fiscalYear, database) {
     var year = normalizedFiscalYear(fiscalYear) || DataService.getFiscalYear();
     var config = currentConfig || {};
-    var key = DataService.getDatabase();
+    var key = database || DataService.getDatabase();
+    var paths = database ? databaseConfig(config, database) : currentDatabase;
     var folders = { KOKOKU: "be", KOUJI: "kouji", OP: "op", KOBO: "kobo" };
     var publicRoot = config["DB_" + key + "_PDF_ROOT"] || (key === "KOKOKU" && config.PDF_ROOT) || "nafin/R8/" + folders[key];
     return {
       fiscalYear: year,
       endedUrl: yearized((currentConfig || {}).ENDED_PDF_URL || "R8/4/keisai-syuuryou.pdf", year),
       pdfRoot: yearized(String(publicRoot), year).replace(/^\/?nafin\//, ""),
-      pdfLibrary: yearized(String((currentDatabase || {}).pdfLibrary || (currentConfig || {}).PDF_LIBRARY || "nafin/R8/be"), year)
+      pdfLibrary: yearized(String((paths || {}).pdfLibrary || config.PDF_LIBRARY || "nafin/R8/be"), year)
     };
   };
 
@@ -276,10 +277,10 @@
     return /^https?:$/.test(anchor.protocol) ? anchor.href : "";
   }
 
-  DataService.getPublicHtmlPath = function (fiscalYear) {
+  DataService.getPublicHtmlPath = function (fiscalYear, database) {
     var config = currentConfig || {};
     var pages = { KOKOKU: "R8kokoku.html", KOUJI: "R8koukoku_kouji.html", OP: "R8open.html", KOBO: "R8koubo.html" };
-    var key = DataService.getDatabase();
+    var key = database || DataService.getDatabase();
     return yearized(config["DB_" + key + "_PUBLIC_HTML"] || "nafin/" + pages[key], fiscalYear);
   };
 
@@ -307,7 +308,7 @@
     }
   };
 
-  DataService.getPdfPreviewUrl = function (value, fileName) {
+  DataService.getPdfPreviewUrl = function (value, fileName, database) {
     var link = String(value || "");
     var name = String(fileName || link.split("/").pop() || "");
     var library;
@@ -315,7 +316,7 @@
     var path;
     if (!DataService.isSharePoint()) { return DataService.getPublicLinkUrl(link); }
     var yearMatch = /(?:^|\/)(R[1-9][0-9]*)(?:\/|$)/i.exec(link);
-    library = DataService.getPublicationConfig(yearMatch ? yearMatch[1] : DataService.getFiscalYear()).pdfLibrary.replace(/\/$/, "");
+    library = DataService.getPublicationConfig(yearMatch ? yearMatch[1] : DataService.getFiscalYear(), database).pdfLibrary.replace(/\/$/, "");
     root = global.SP && global.SP.webRoot ? global.SP.webRoot : String((currentConfig && currentConfig.WEB_ROOT) || "");
     if (!library || !name) { return ""; }
     try { name = decodeURIComponent(name); } catch (ignore) {}
@@ -334,9 +335,9 @@
     if (success) { success(data); }
   };
 
-  DataService.update = function (kind, itemId, data, success, error) {
+  DataService.update = function (kind, itemId, data, success, error, database) {
     if (String(currentConfig.DATA_MODE || "CSV").toUpperCase() === "SHAREPOINT") {
-      SP.update(listName(kind), itemId, data, success, error);
+      SP.update(database && kind === "announcements" ? databaseConfig(currentConfig, database).announcementList : listName(kind), itemId, data, success, error);
       return;
     }
     if (success) { success(data); }
@@ -448,11 +449,11 @@
     });
   };
 
-  DataService.readPdf = function (link, success, error) {
+  DataService.readPdf = function (link, success, error, database) {
     var request;
     var url;
     if (!DataService.isSharePoint()) { if (error) { error(); } return; }
-    url = DataService.getPdfPreviewUrl(link.URL, link.FileName);
+    url = DataService.getPdfPreviewUrl(link.URL, link.FileName, database);
     if (!url) { if (error) { error(); } return; }
     request = new XMLHttpRequest();
     request.open("GET", url, true);
