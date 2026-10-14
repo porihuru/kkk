@@ -995,7 +995,7 @@
         byId("form-message").textContent = "選択した結果PDFを保存できません。右上の「診断」で内容を確認してください。";
         return false;
       }
-      if (!/_kk\.pdf$/i.test(pdfInput("link-url-input", i).value) && !selectedPdfFiles[pdfKey("planned", links[i].ID)]) {
+      if (!/_kk(?:_[0-9]+)?\.pdf$/i.test(pdfInput("link-url-input", i).value) && !selectedPdfFiles[pdfKey("planned", links[i].ID)]) {
         byId("form-message").textContent = "結果PDFを選択してください。";
         return false;
       }
@@ -1300,7 +1300,7 @@
       return;
     }
     if (!requireActiveFiscalYear(itemFiscalYear(source))) { return; }
-    if (!resultLinks.length || resultLinks.some(function (link) { return !/_kk\.pdf$/i.test(link.URL || ""); })) {
+    if (!resultLinks.length || resultLinks.some(function (link) { return !/_kk(?:_[0-9]+)?\.pdf$/i.test(link.URL || ""); })) {
       byId("form-message").textContent = "結果PDFが未登録です。結果作業を完了してから本リストへ登録してください。";
       return;
     }
