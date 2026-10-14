@@ -205,39 +205,56 @@
   }
 
   function setupDateInput() {
-    var picker = byId("date-picker-input");
-    if (!picker.showPicker && picker.type === "date") {
-      picker.className = "date-picker-visible";
-      picker.removeAttribute("aria-hidden");
-      picker.removeAttribute("tabindex");
-      picker.setAttribute("aria-label", "入札日（西暦）");
-    } else if (picker.type !== "date") {
-      byId("date-picker-button").innerHTML = "入力";
-      byId("date-picker-button").setAttribute("aria-label", "入札日を直接入力（例：R8.9.13）");
-    }
-    byId("date-input").onchange = function () {
-      syncDatePicker();
-      updatePdfLinks();
-    };
+    byId("date-input").readOnly = true;
+    byId("date-picker-input").style.display = "none";
+    byId("date-picker-button").textContent = "カレンダー";
     byId("date-picker-button").onclick = function () {
-      if (picker.type !== "date") {
-        byId("date-input").focus();
-      } else if (picker.showPicker) {
-        picker.showPicker();
-      } else {
-        picker.focus();
-        picker.click();
-      }
+      if (workflowBusy || resultWorkMode) { return; }
+      CalendarPicker.open(bidDateAsDate() || new Date(), function (date) {
+        byId("date-input").value = toReiwaDate(date);
+        syncDatePicker(); updatePdfLinks();
+      });
     };
-    picker.onchange = function () {
-      var parts;
-      if (!picker.value) {
-        return;
+    byId("date-input").onclick = function () { byId("date-picker-button").onclick(); };
+  }
+
+  var filenameJobs = 0;
+  function generatePdfName(options, success, failure) {
+    filenameJobs += 1;
+    workflowBusy = true;
+    saveProgress("PDFファイル名を作成しています。残り " + filenameJobs + "件。", false);
+    global.setTimeout(function () {
+      var settled = false;
+      function finish(callback, value) {
+        if (settled) { return; } settled = true;
+        try { callback(value); }
+        finally {
+          filenameJobs -= 1;
+          if (!filenameJobs) {
+            workflowBusy = false;
+            saveProgress("PDFファイル名の作成が終了しました。", true, null, true);
+          } else { saveProgress("PDFファイル名を作成しています。残り " + filenameJobs + "件。", false); }
+        }
       }
-      parts = picker.value.split("-");
-      byId("date-input").value = toReiwaDate(new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
-      updatePdfLinks();
-    };
+      try { FilenameGenerator.generate(options, function (value) { finish(success, value); }, function (error) { finish(failure, error); }); }
+      catch (error) { finish(failure, error); }
+    }, 30);
+  }
+
+  function uniquePdfUrl(url, rowIndex) {
+    var used = {};
+    plannedLinks.concat(allLinks).forEach(function (link) {
+      if (link.URL) { used[String(link.URL).replace(/^.*\/nafin\//i, "").replace(/^nafin\//i, "").toLowerCase()] = true; }
+    });
+    for (var i = 0; i < PDF_ROW_COUNT; i += 1) {
+      if (i !== rowIndex) { used[String(pdfInput("link-url-input", i).value || "").toLowerCase()] = true; }
+    }
+    var candidate = url, number = 2;
+    while (used[candidate.toLowerCase()]) {
+      candidate = url.replace(/\.pdf$/i, "_" + number + ".pdf");
+      number += 1;
+    }
+    return candidate;
   }
 
   function fileNameFromUrl(url) {
@@ -275,7 +292,7 @@
       return;
     }
     filenamePending[rowIndex] = true;
-    global.FilenameGenerator.generate({
+    generatePdfName({
       title: title,
       garrison: garrison,
       category: byId("category-input").value,
@@ -285,7 +302,7 @@
         return;
       }
       filenamePending[rowIndex] = false;
-      pdfInput("link-url-input", rowIndex).value = DataService.getPublicationConfig(fiscalYear).pdfRoot.replace(/^\/+|\/+$/g, "") + "/" + result.fileName;
+      pdfInput("link-url-input", rowIndex).value = uniquePdfUrl(DataService.getPublicationConfig(fiscalYear).pdfRoot.replace(/^\/+|\/+$/g, "") + "/" + result.fileName, rowIndex);
     }, function () {
       if (sequence !== filenameGenerationSequences[rowIndex]) {
         return;
@@ -355,11 +372,11 @@
       byId("form-message").textContent = "選択した結果PDFを保存できません。右上の「診断」で内容を確認してください。";
       return;
     }
-    FilenameGenerator.generate({ title: pdfInput("link-text-input", rowIndex).value, garrison: byId("garrison-input").value, category: "NEW", date: bidDateAsDate() }, function (result) {
+    generatePdfName({ title: pdfInput("link-text-input", rowIndex).value, garrison: byId("garrison-input").value, category: "NEW", date: bidDateAsDate() }, function (result) {
       var name;
       if (sequence !== filenameGenerationSequences[rowIndex]) { return; }
       name = result.fileName.replace(/\.pdf$/i, "_kk.pdf");
-      pdfInput("link-url-input", rowIndex).value = resultPdfUrl(name);
+      pdfInput("link-url-input", rowIndex).value = uniquePdfUrl(resultPdfUrl(name), rowIndex);
       byId("form-message").textContent = "結果PDFを選択しました。";
     }, function () {
       if (sequence !== filenameGenerationSequences[rowIndex]) { return; }
@@ -509,7 +526,7 @@
     resultWorkMode = active;
     byId("category-input").disabled = active;
     byId("garrison-input").disabled = active;
-    byId("date-input").readOnly = active;
+    byId("date-input").readOnly = true;
     byId("date-picker-button").disabled = active;
     byId("date-picker-input").disabled = active;
     byId("status-input").disabled = active;
