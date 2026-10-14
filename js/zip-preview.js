@@ -24,7 +24,10 @@
         if (!child.file) { walk(child, prefix + (last ? "   " : "│  ")); }
       });
     }
-    walk(root, ""); return lines.join("\n");
+    if (root.children.length === 1 && root.children[0].name === "nafin" && !root.children[0].file) {
+      lines = ["nafin/"]; walk(root.children[0], "");
+    } else { walk(root, ""); }
+    return lines.join("\n");
   }
   function open(name, files, full, yes, no) {
     var doc = global.document, previous = doc.activeElement;

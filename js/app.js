@@ -1730,7 +1730,7 @@
           var data = PublicationWorkflow.candidate(rows, links, config.endedUrl);
           publications.push({ db: db, data: data, rows: rows });
           if (!DataService.isSharePoint()) { csvDatabaseSnapshots[db.database] = db; }
-          files.push({ name: DataService.getPublicHtmlPath(activeFiscalYear, db.database).replace(/^nafin\//i, ""),
+          files.push({ name: "nafin/" + DataService.getPublicHtmlPath(activeFiscalYear, db.database).replace(/^nafin\//i, ""),
             content: HtmlExport.create(data.announcements, data.links, db.settings || [], activeFiscalYear) });
           data.links.forEach(function (link) {
             var owner = announcementById(link.KokokuID, rows);
@@ -1741,7 +1741,7 @@
             var file = (db.pdfFiles || {})[pdfKey("published", link.ID)];
             if (!file && !DataService.isSharePoint()) { return; }
             var name = link.FileName || fileNameFromUrl(link.URL) || (file && file.name);
-            var entry = { name: (link.URL || config.pdfRoot + "/" + name).replace(/^nafin\//i, ""), file: file };
+            var entry = { name: "nafin/" + (link.URL || config.pdfRoot + "/" + name).replace(/^nafin\//i, ""), file: file };
             files.push(entry);
             if (!file) { reads.push({ database: db.database, link: link, entry: entry }); }
           });

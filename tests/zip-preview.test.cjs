@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 test('tree groups actual paths and rejects duplicates, path traversal and file/directory collisions',()=>{
  const c={};vm.createContext(c);vm.runInContext(fs.readFileSync('js/zip-preview.js','utf8'),c);
  const files=['nafin/R8kokoku.html','nafin/R8/be/a.pdf','nafin/R8/be/b.pdf'].map(name=>({name}));
- assert.equal(c.ZipPreview.tree('update.zip',files),'update.zip\n└─ nafin/\n   ├─ R8kokoku.html\n   └─ R8/\n      └─ be/\n         ├─ a.pdf\n         └─ b.pdf');
+ assert.equal(c.ZipPreview.tree('update.zip',files),'nafin/\n├─ R8kokoku.html\n└─ R8/\n   └─ be/\n      ├─ a.pdf\n      └─ b.pdf');
  for(const paths of [['a.pdf','A.pdf'],['../a.pdf'],['/a.pdf'],['nafin','nafin/a.pdf'],['nafin/a.pdf','nafin']])assert.throws(()=>c.ZipPreview.tree('x.zip',paths.map(name=>({name}))));
 });
 test('dialog waits for OK, cancel and Escape never approve, and duplicate disables OK',()=>{
