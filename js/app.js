@@ -23,6 +23,7 @@
   var filenamePending = [];
   var filenameComposing = [];
   var resultWorkMode = false;
+  var additionWorkMode = false;
   var editingResultSourceId = "";
   var PDF_ROW_COUNT = 5;
   var workflowBusy = false;
@@ -425,7 +426,7 @@
     if (value === "公開" || value === "公開済み") {
       return "公告反映済";
     }
-    if (value === "公開待ち") { return value; }
+    if (value === "公開待ち" || value === "公告追加作業" || value === "公告追加登録") { return value; }
     if (value === "下書き") {
       return "公告登録";
     }
@@ -448,6 +449,145 @@
 
   function listState(kind) {
     return kind === "planned" ? { announcements: plannedAnnouncements, links: plannedLinks } : { announcements: allAnnouncements, links: allLinks };
+  }
+
+
+  function isAdditionWork(item) { return !!item && item.WorkType === "ADDITION"; }
+
+  function canEditAddition(task) {
+    var user = DataService.getCurrentUser();
+    return !!user && (adminActive || !task.ResultSubmittedById || String(task.ResultSubmittedById) === String(user.id));
+  }
+
+  function createAdditionWork() {
+    if (!adminActive || workflowBusy || pendingSave) { return; }
+    var source = announcementById(this.getAttribute("data-id"), allAnnouncements);
+    if (!source || PublicationWorkflow.state(source) !== "公告掲載中" || !requireActiveFiscalYear(itemFiscalYear(source))) { return; }
+    var exists = plannedAnnouncements.some(function (item) { return isAdditionWork(item) && String(item.SourceAnnouncementID) === String(source.ID); });
+    if (exists) { byId("form-message").textContent = "この公告の追加作業は既に公告予定リストにあります。"; return; }
+    var user = DataService.getCurrentUser();
+    if (!user) { return; }
+    var task = { ID: nextId(plannedAnnouncements), AuthorId: String(user.id), AuthorName: user.name, Created: new Date().toISOString(),
+      Category: "NEW", Garrison: source.Garrison, BidDate: source.BidDate, FiscalYear: itemFiscalYear(source),
+      Remarks: source.Remarks || "", Sort: "0", Status: "公告追加作業", OperationDate: operationDateText(),
+      ListKind: "planned", WorkType: "ADDITION", SourceAnnouncementID: String(source.ID), WorkflowKey: "ADDITION:" + source.ID };
+    function applied() {
+      plannedAnnouncements.unshift(task); preservePlannedOrder = true;
+      unsaved = !DataService.isSharePoint(); filterAnnouncements();
+      byId("form-message").textContent = "公告予定リストに公告追加作業を作成しました。追加する品名とPDFを登録してください。";
+    }
+    if (!DataService.isSharePoint()) { applied(); return; }
+    var payload = {};
+    ["Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate"].concat(PublicationWorkflow.fields).forEach(function (key) { payload[key] = task[key] || ""; });
+    runSave([function (ok, fail) {
+      DataService.add("announcements", payload, function (saved) { task.Id = saved.Id || saved.ID; task.ID = String(task.Id); ok(); }, fail);
+    }], applied, "公告追加作業の作成");
+  }
+
+  function beginAdditionWork() {
+    if (workflowBusy || pendingSave) { return; }
+    var task = announcementById(this.getAttribute("data-id"), plannedAnnouncements);
+    var source = task && announcementById(task.SourceAnnouncementID, allAnnouncements);
+    if (!isAdditionWork(task) || !source || !canEditAddition(task)) {
+      byId("form-message").textContent = "追加作業の対象または編集権限を確認できません。"; return;
+    }
+    if (PublicationWorkflow.state(source) !== "公告掲載中" || !requireActiveFiscalYear(itemFiscalYear(source))) {
+      byId("form-message").textContent = "元の公告が掲載中ではないため追加できません。"; return;
+    }
+    clearForm(); additionWorkMode = true;
+    editingList = "planned";
+    byId("announcement-id").value = task.ID;
+    byId("category-input").value = "NEW";
+    byId("garrison-input").value = source.Garrison;
+    byId("date-input").value = source.BidDate; syncDatePicker();
+    byId("status-input").value = "公告登録";
+    byId("remarks-input").value = source.Remarks || "";
+    ["category-input", "garrison-input", "status-input", "date-picker-button", "date-picker-input"].forEach(function (id) { byId(id).disabled = true; });
+    byId("remarks-input").readOnly = true;
+    var links = linksFor(task.ID, plannedLinks);
+    for (var i = 0; i < PDF_ROW_COUNT; i += 1) {
+      pdfInput("link-text-input", i).value = links[i] ? links[i].Text : "";
+      pdfInput("link-url-input", i).value = links[i] ? links[i].URL : "";
+      pdfInput("link-url-input", i).readOnly = true;
+    }
+    byId("editor-title").textContent = "公告追加作業（元公告ID：" + source.ID + "）";
+    byId("cancel-edit").className = "button button-secondary";
+    byId("form-message").textContent = "追加分の品名・PDFだけを登録してください。元の公告は変更されません。";
+    if (byId("announcement-form").scrollIntoView) { byId("announcement-form").scrollIntoView(); }
+  }
+
+  function saveAdditionWork() {
+    var task = announcementById(byId("announcement-id").value, plannedAnnouncements);
+    var source = task && announcementById(task.SourceAnnouncementID, allAnnouncements);
+    if (!isAdditionWork(task) || !source || !canEditAddition(task) || PublicationWorkflow.state(source) !== "公告掲載中") {
+      byId("form-message").textContent = "追加対象または権限を確認できません。"; return false;
+    }
+    if (!requireActiveFiscalYear(itemFiscalYear(source))) { return false; }
+    if (filenameComposing.some(function (v) { return v; })) { byId("form-message").textContent = "品名の変換を確定してください。"; return false; }
+    filenameDirty.forEach(function (dirty, i) { if (dirty) { updatePdfLink(i); } });
+    if (filenamePending.some(function (v) { return v; })) { byId("form-message").textContent = "PDF名の作成後にもう一度保存してください。"; return false; }
+    var old = linksFor(task.ID, plannedLinks), rows = [], files = {}, user = DataService.getCurrentUser();
+    for (var i = 0; i < PDF_ROW_COUNT; i += 1) {
+      var text = pdfInput("link-text-input", i).value.trim(), url = pdfInput("link-url-input", i).value;
+      var input = pdfInput("pdf-file-input", i), file = input.files && input.files[0];
+      if (!text && !file) { continue; }
+      if (!text || !url || (!file && !(old[i] && old[i].URL === url)) || (file && !validPdfFile(file, "追加公告PDF"))) {
+        byId("form-message").textContent = (i + 1) + "行目の追加する品名とPDFを確認してください。"; return false;
+      }
+      rows.push({text:text, url:url, file:file, old:old[i]});
+    }
+    if (!rows.length) { byId("form-message").textContent = "追加する品名とPDFを1件以上登録してください。"; return false; }
+    var links = rows.map(function (row, index) {
+      var link = row.old || { ID: nextLinkId(plannedLinks), KokokuID: String(task.ID) };
+      link.Text = row.text; link.URL = row.url; link.FileName = fileNameFromUrl(row.url); link.Type = "公告"; link.Sort = String(index + 1);
+      if (!row.old) { plannedLinks.push(link); }
+      if (row.file) { files[pdfKey("planned", link.ID)] = row.file; selectedPdfFiles[pdfKey("planned", link.ID)] = row.file; }
+      return link;
+    });
+    var removed = old.filter(function (link) { return links.indexOf(link) < 0; });
+    removed.forEach(function (link) { plannedLinks.splice(plannedLinks.indexOf(link), 1); delete selectedPdfFiles[pdfKey("planned", link.ID)]; });
+    task.Status = "公告追加登録"; task.Category = "NEW"; task.Garrison = source.Garrison; task.BidDate = source.BidDate;
+    task.Remarks = source.Remarks || ""; task.OperationDate = operationDateText();
+    task.ResultSubmittedById = String(user.id); task.ResultSubmittedByName = user.name; task.ResultSubmittedAt = new Date().toISOString();
+    clearForm(); filterAnnouncements();
+    byId("form-message").textContent = "追加公告を保存しました。管理者が本リストへ登録すると元の公告に追加されます。";
+    persistAnnouncement("planned", task, links, false, files, removed);
+    return false;
+  }
+
+  function publishAdditionWork(task) {
+    var source = announcementById(task.SourceAnnouncementID, allAnnouncements);
+    var links = linksFor(task.ID, plannedLinks);
+    if (!adminActive || !source || PublicationWorkflow.state(source) !== "公告掲載中" || task.Status !== "公告追加登録" || !links.length) {
+      byId("form-message").textContent = "掲載中の元公告と保存済みの追加公告を確認してください。"; return;
+    }
+    if (!requireActiveFiscalYear(itemFiscalYear(source))) { return; }
+    var lastSort = linksFor(source.ID, allLinks).reduce(function (n, link) { return Math.max(n, Number(link.Sort || 0)); }, 0);
+    var tasks = [], patch = {Status:"公開待ち", PublicState:"公告掲載中", OperationDate:operationDateText()};
+    links.forEach(function (link, index) {
+      if (DataService.isSharePoint()) { tasks.push(function (ok, fail) {
+        DataService.update("links", link.Id || link.ID, {KokokuID:String(source.Id || source.ID), Sort:String(lastSort + index + 1)}, ok, fail);
+      }); }
+    });
+    if (DataService.isSharePoint()) {
+      tasks.push(function (ok, fail) { DataService.update("announcements", source.Id || source.ID, patch, ok, fail); });
+      tasks.push(function (ok, fail) { DataService.remove("announcements", task.Id || task.ID, ok, fail); });
+    }
+    function applied() {
+      links.forEach(function (link, index) {
+        var file = selectedPdfFiles[pdfKey("planned", link.ID)];
+        delete selectedPdfFiles[pdfKey("planned", link.ID)];
+        plannedLinks.splice(plannedLinks.indexOf(link), 1);
+        if (!DataService.isSharePoint()) { link.ID = nextLinkId(allLinks); }
+        link.KokokuID = String(source.ID); link.Sort = String(lastSort + index + 1); allLinks.push(link);
+        if (file) { selectedPdfFiles[pdfKey("published", link.ID)] = file; }
+      });
+      Object.keys(patch).forEach(function (key) { source[key] = patch[key]; });
+      plannedAnnouncements.splice(plannedAnnouncements.indexOf(task), 1);
+      unsaved = !DataService.isSharePoint(); clearForm(); filterAnnouncements();
+      byId("form-message").textContent = "元の公告を保持して追加公告を末尾へ登録しました。ZIP作成までは公開待ちです。";
+    }
+    if (DataService.isSharePoint()) { runSave(tasks, applied, "追加公告の反映"); } else { applied(); }
   }
 
   function isResultWork(item) {
@@ -522,6 +662,9 @@
   }
 
   function setResultFormMode(active) {
+    additionWorkMode = false;
+    byId("remarks-input").readOnly = false;
+    for (var ai = 0; ai < PDF_ROW_COUNT; ai += 1) { pdfInput("link-url-input", ai).readOnly = false; }
     var i;
     resultWorkMode = active;
     byId("category-input").disabled = active;
@@ -720,8 +863,11 @@
       html.push('<span title="管理ID: ' + escapeHtml(announcements[i].ID) + '">' + (announcements.length - i) + '</span><br><small class="management-id">ID: ' + escapeHtml(announcements[i].ID) + '</small></td>');
       html.push("<td class=\"year-cell\">" + escapeHtml(itemFiscalYear(announcements[i]) || "不明") + "</td>");
       html.push("<td class=\"actions\">");
-      if (canOperate && !isResultWork(announcements[i])) {
+      if (canOperate && !isResultWork(announcements[i]) && !isAdditionWork(announcements[i])) {
         html.push("<button type=\"button\" class=\"button button-small edit-button\" data-list=\"" + kind + "\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">修正</button> <button type=\"button\" class=\"button button-small button-danger delete-button\" data-list=\"" + kind + "\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">削除</button>");
+      }
+      if (kind === "planned" && isAdditionWork(announcements[i])) {
+        html.push('<button type="button" class="button button-small addition-work-button" data-id="' + escapeHtml(announcements[i].ID) + '">公告追加作業</button>');
       }
       if (kind === "planned" && isResultWork(announcements[i])) {
         html.push("<button type=\"button\" class=\"button button-small result-work-button\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">結果作業</button>");
@@ -735,7 +881,10 @@
       if (kind === "published" && adminActive && PublicationWorkflow.state(announcements[i]) !== "掲載終了") {
         html.push(" <button type=\"button\" class=\"button button-small button-secondary end-publication-button\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">掲載終了</button>");
       }
-      if (!canOperate && !adminActive && !isResultWork(announcements[i])) {
+      if (kind === "published" && adminActive && PublicationWorkflow.state(announcements[i]) === "公告掲載中") {
+        html.push(' <button type="button" class="button button-small button-secondary create-addition-button" data-id="' + escapeHtml(announcements[i].ID) + '">公告追加</button>');
+      }
+      if (!canOperate && !adminActive && !isResultWork(announcements[i]) && !isAdditionWork(announcements[i])) {
         html.push("—");
       }
       html.push("</td>");
@@ -756,6 +905,9 @@
         html.push("<li><a href=\"" + escapeHtml(DataService.getPublicLinkUrl(links[j].URL)) + "\" target=\"_blank\" rel=\"noopener noreferrer\">" + escapeHtml(links[j].Text) + "</a> <button type=\"button\" class=\"button button-small button-secondary pdf-preview-button\" data-list=\"" + kind + "\" data-link-id=\"" + escapeHtml(links[j].ID) + "\" data-preview-url=\"" + escapeHtml(links[j].URL) + "\" data-preview-type=\"" + escapeHtml(links[j].Type) + "\" aria-label=\"" + escapeHtml(links[j].Text + "のPDFを確認") + "\">PDF確認</button></li>");
       }
       if (!links.length) {
+        if (isAdditionWork(announcements[i])) {
+          html.push("<li>追加元：" + escapeHtml(linksFor(announcements[i].SourceAnnouncementID, allLinks).map(function (link) { return link.Text; }).join(" / ")) + "</li>");
+        }
         html.push("<li>（PDF未登録）</li>");
       }
       html.push("</ul></td>");
@@ -772,6 +924,10 @@
   }
 
   function bindRowActions() {
+    var addButtons = document.getElementsByClassName("create-addition-button");
+    var workButtons = document.getElementsByClassName("addition-work-button");
+    for (var ai = 0; ai < addButtons.length; ai += 1) { addButtons[ai].onclick = createAdditionWork; }
+    for (var wi = 0; wi < workButtons.length; wi += 1) { workButtons[wi].onclick = beginAdditionWork; }
     var editButtons = document.getElementsByClassName("edit-button");
     var deleteButtons = document.getElementsByClassName("delete-button");
     var publishButtons = document.getElementsByClassName("publish-button");
@@ -823,12 +979,14 @@
     var state = listState(kind);
     var announcement = announcementById(this.getAttribute("data-id"), state.announcements);
     var links;
+    if (isAdditionWork(announcement)) { beginAdditionWork.call(this); return; }
     if (!DataService.canManageAnnouncement(announcement, kind, adminActive)) {
       return;
     }
     if (!announcement) {
       return;
     }
+    setResultFormMode(false);
     editingList = kind;
     links = linksFor(announcement.ID, state.links);
     byId("announcement-id").value = announcement.ID;
@@ -893,6 +1051,9 @@
   }
 
   function clearForm() {
+    additionWorkMode = false;
+    byId("remarks-input").readOnly = false;
+    for (var ai = 0; ai < PDF_ROW_COUNT; ai += 1) { pdfInput("link-url-input", ai).readOnly = false; }
     resetFilenameWork();
     formDirty = false;
     setResultFormMode(false);
@@ -1092,6 +1253,7 @@
     if (event) {
       event.preventDefault();
     }
+    if (additionWorkMode || isAdditionWork(announcement)) { return saveAdditionWork(); }
     if (resultWorkMode) { return saveResultWork(); }
     if (filenameComposing.some(function (value) { return value; })) {
       byId("form-message").textContent = "品名の日本語変換を確定してください。"; return false;
@@ -1184,7 +1346,9 @@
         selectedPdfFiles[pdfKey(targetKind, link.ID)] = file;
       }
     }
-    for (i = links.length - 1; i >= linkRecords.length; i -= 1) {
+    // Rows beyond the editor limit may be appended announcements; preserve them.
+    var retainedExtraLinks = links.slice(PDF_ROW_COUNT);
+    for (i = Math.min(links.length, PDF_ROW_COUNT) - 1; i >= linkRecords.length; i -= 1) {
       removedLinks.push(links[i]);
       delete selectedPdfFiles[pdfKey(targetKind, links[i].ID)];
       state.links.splice(state.links.indexOf(links[i]), 1);
@@ -1194,6 +1358,7 @@
     for (i = 0; i < linkRecords.length; i += 1) {
       links.push(linkRecords[i].link);
     }
+    links = links.concat(retainedExtraLinks);
     if (targetKind === "planned") {
       i = state.announcements.indexOf(announcement);
       if (i > 0) {
@@ -1252,6 +1417,7 @@
     var id = this.getAttribute("data-id"), kind = this.getAttribute("data-list") || "planned", state = listState(kind);
     var item = announcementById(id, state.announcements), links = linksFor(id, state.links);
     if (!item || !requireActiveFiscalYear(itemFiscalYear(item))) { return; }
+    if (isAdditionWork(item) && !adminActive) { return; }
     if (!DataService.canManageAnnouncement(item, kind, adminActive) || !window.confirm("この公告を削除しますか？")) { return; }
     function deleted() {
       deletedAnnouncements.unshift({ deletedAt: new Date().toLocaleString(), announcement: copyObject(item), links: links.map(copyObject) });
@@ -1372,6 +1538,7 @@
     var from = listState(fromKind), to = listState(toKind), item = announcementById(this.getAttribute("data-id"), from.announcements);
     if (!adminActive || !item) { return; }
     if (!requireActiveFiscalYear(itemFiscalYear(item))) { return; }
+    if (fromKind === "planned" && isAdditionWork(item)) { publishAdditionWork(item); return; }
     if (fromKind === "planned" && isResultWork(item)) { publishResultWork(item); return; }
     var patch = { ListKind: toKind, Status: toKind === "published" ? "公開待ち" : "内容修正", OperationDate: operationDateText() };
     if (toKind === "published" && item.Status === "入札終了登録") { patch.PublicState = "掲載終了"; }
