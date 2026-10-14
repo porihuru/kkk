@@ -283,7 +283,7 @@
     filenameGenerationSequences[rowIndex] = sequence;
     filenameDirty[rowIndex] = false;
     filenamePending[rowIndex] = false;
-    if (rowIndex > 0 && !title) {
+    if (!title) {
       pdfInput("link-url-input", rowIndex).value = "";
       return;
     }
