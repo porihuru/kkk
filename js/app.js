@@ -1719,7 +1719,7 @@
     }
     DataService.loadPublicationDatabases(snapshots, function (databases) {
       var files = [], reads = [], publications = [];
-      var zipName = activeFiscalYear + "_all" + (fullData ? "_full.zip" : "_update.zip");
+      var zipName = "nafin.zip";
       try {
         databases.forEach(function (db) {
           var rows = (db.publishedAnnouncements || []).filter(function (item) { return itemFiscalYear(item) === activeFiscalYear; });
