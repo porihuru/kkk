@@ -26,7 +26,7 @@ test('HTML replacement freshly loads and deletes all selected list rows before a
  assert.deepEqual(s.calls.slice(6).map(c=>c[0]),['add','add']);
  assert.equal(s.calls[7][2].KokokuID,'2007');
  assert.match(s.elements['save-progress-message'].textContent,/完了しました/);
- assert.equal(s.elements['save-progress-close'].style.display,'inline-block');
+ assert.equal(s.elements['save-progress'].style.display,'none');
 });
 test('cancel never deletes; failure stops before additions and retry resumes the failed deletion',()=>{
  const cancelled=setup(false);cancelled.context.runImport(cancelled.data);assert.equal(cancelled.calls.length,0);

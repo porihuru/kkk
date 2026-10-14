@@ -34,7 +34,7 @@
   }
   var progressGuardInstalled = false;
   var progressPreviousFocus = null;
-  function saveProgress(message, finished, retry) {
+  function saveProgress(message, finished, retry, autoClose) {
     var panel = byId("save-progress");
     if (!panel) { return; }
     if (panel.style.display !== "block") { progressPreviousFocus = document.activeElement; }
@@ -63,6 +63,10 @@
     byId("save-progress-close").onclick = function () { panel.style.display = "none"; if (progressPreviousFocus && progressPreviousFocus.focus) { progressPreviousFocus.focus(); } };
     byId("save-progress-retry").style.display = retry ? "inline-block" : "none";
     byId("save-progress-retry").onclick = retry || null;
+    if (finished && autoClose && !retry) {
+      byId("save-progress-close").style.display = "none";
+      byId("save-progress-close").onclick();
+    }
   }
   function runSave(tasks, done, progressTitle) {
     var index = 0;
@@ -75,7 +79,7 @@
         if (index === tasks.length) {
           workflowBusy = false; pendingSave = null; unsaved = false;
           byId("retry-save").disabled = true; done();
-          if (progressTitle) { saveProgress(progressTitle + "：完了しました（" + tasks.length + " / " + tasks.length + "件）。", true); }
+          if (progressTitle) { saveProgress(progressTitle + "：完了しました（" + tasks.length + " / " + tasks.length + "件）。", true, null, true); }
           return;
         }
         if (progressTitle) { saveProgress(progressTitle + "：" + (tasks[index].phase || "保存中") + "　完了 " + index + " / " + tasks.length + "件。応答を待っています。画面を閉じずにお待ちください。", false); }
@@ -1850,7 +1854,7 @@
       currentDateSetting = settingByType("date");
       retainedSettings = allSettings.filter(function (item) { return item.Type !== "date"; });
       if (!window.confirm("選択中の区分の公告 " + previous.length + "件とリンク " + previousLinks.length + "件を全件削除し、HTMLの公告 " + imported.length + "件を登録します。全年度・予定一覧・アプリで追加した公告も削除対象です。別区分・PDF・設定は残します。実行しますか？")) {
-        saveProgress("HTML登録をキャンセルしました。データは変更していません。", true); return;
+        saveProgress("HTML登録をキャンセルしました。データは変更していません。", true, null, true); return;
       }
     }
     nextImportedId = parseInt(nextId(retainedAnnouncements), 10) || 1;

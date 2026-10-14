@@ -1,5 +1,5 @@
 const test = require('node:test'), assert = require('node:assert/strict'), fs = require('node:fs'), vm = require('node:vm');
-test('ordinary save blocks background pointer and keyboard until dismissed; retry remains available', () => {
+test('ordinary save blocks background pointer and keyboard until completion; retry remains available', () => {
  const elements={}, handlers={};
  const document={activeElement:null,addEventListener:(type,fn)=>handlers[type]=fn,getElementById:id=>elements[id]||(elements[id]={id,style:{},setAttribute(){},focus(){document.activeElement=this;},contains(target){return target===this || target && /^save-progress/.test(target.id);}})};
  const context={document};vm.createContext(context);
@@ -17,5 +17,7 @@ test('ordinary save blocks background pointer and keyboard until dismissed; retr
  fail('失敗');assert.equal(elements['save-progress-retry'].style.display,'inline-block');
  elements['save-progress-retry'].onclick();assert.equal(elements['save-progress-close'].style.display,'none');
  ok();assert.equal(done,1);assert.match(elements['save-progress-message'].textContent,/完了しました/);
- elements['save-progress-close'].onclick();assert.equal(elements['save-progress'].style.display,'none');
+ assert.equal(elements['save-progress'].style.display,'none');
+ assert.equal(elements['save-progress-close'].style.display,'none');
+ let blocked=false;handlers.click({type:'click',target:{id:'save'},preventDefault(){blocked=true;}});assert.equal(blocked,false);
 });
