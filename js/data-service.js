@@ -353,7 +353,12 @@
       library = String(root || "").replace(/\/$/, "") + "/" + library;
     }
     path = library + "/" + encodeURIComponent(name);
-    return resolvePublicUrl(path, global.location.href);
+    // Server-relative storage paths do not need a detached HTML document.
+    // IE mode can leave that document's anchor.protocol unresolved.
+    if (/^https?:\/\//i.test(path)) { return path; }
+    var origin = /^(https?:\/\/[^\/]+)/i.exec(String(global.location.href || ""));
+    return origin && path.charAt(0) === "/" ? origin[1] + path : "";
+
   };
 
   DataService.add = function (kind, data, success, error) {
@@ -483,7 +488,11 @@
     var url;
     if (!DataService.isSharePoint()) { if (error) { error(); } return; }
     url = DataService.getPdfPreviewUrl(link.URL, link.FileName, database);
-    if (!url) { if (error) { error(); } return; }
+    if (!url) {
+      if (global.Diagnostics) { global.Diagnostics.error("PDF", "PDF取得URLを生成できません。", "Database=" + (database || DataService.getDatabase()) + " / Link=" + link.URL + " / File=" + link.FileName); }
+      if (error) { error({statusText:"PDF取得URLを生成できません。"}); } return;
+    }
+    if (global.Diagnostics) { global.Diagnostics.log("PDF", "ZIP用PDFを取得しています。", "GET " + url); }
     request = new XMLHttpRequest();
     request.open("GET", url, true);
     request.responseType = "arraybuffer";
