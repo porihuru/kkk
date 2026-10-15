@@ -894,7 +894,7 @@
         html.push("<td class=\"operation-date-cell\">" + escapeHtml(postingDateText(announcements[i].Created)) + "</td>");
       }
       statusText = kind === "published" ? (announcements[i].Status === "公開待ち" && PublicationWorkflow.state(announcements[i]) !== "掲載終了" ? "公開待ち" : PublicationWorkflow.state(announcements[i])) : announcements[i].Status;
-      html.push('<td class="status-cell">' + escapeHtml(statusText));
+      html.push('<td class="status-cell">' + (kind === "published" && statusText === "公開待ち" ? '<strong style="color:#e53935;font-weight:700;">' + escapeHtml(statusText) + '</strong>' : escapeHtml(statusText)));
       if (kind === "published" && announcements[i].Status === "公開待ち" && PublicationWorkflow.state(announcements[i]) === "掲載終了") { html.push('<br><small>ZIP未作成</small>'); }
       if (kind === "published" && PublicationWorkflow.due(announcements[i])) { html.push('<br><strong class="due-notice">掲載終了の確認対象</strong>'); }
       html.push('</td>');
