@@ -764,6 +764,14 @@
     return null;
   }
 
+  function pdfPreviewTitle(kind, link) {
+    var file = link.Type !== "掲載終了" ? selectedPdfFiles[pdfKey(kind, link.ID)] : null;
+    if (file) { return "選択中のPDF: " + (file.name || link.FileName || "document.pdf"); }
+    return (DataService.isSharePoint() && link.Type !== "掲載終了" ?
+      DataService.getPdfPreviewUrl(link.URL, link.FileName) : DataService.getPublicLinkUrl(link.URL)) ||
+      "PDFの保存先を確認できません。";
+  }
+
   function previewPdf() {
     var kind = this.getAttribute("data-list") || "planned";
     var state = listState(kind);
@@ -902,7 +910,7 @@
       html.push("<td class=\"garrison-cell\">" + escapeHtml(announcements[i].Garrison) + "</td>");
       html.push("<td class=\"subject-cell\"><ul class=\"link-list\">");
       for (j = 0; j < links.length; j += 1) {
-        html.push("<li><a href=\"" + escapeHtml(DataService.getPublicLinkUrl(links[j].URL)) + "\" target=\"_blank\" rel=\"noopener noreferrer\">" + escapeHtml(links[j].Text) + "</a> <button type=\"button\" class=\"button button-small button-secondary pdf-preview-button\" data-list=\"" + kind + "\" data-link-id=\"" + escapeHtml(links[j].ID) + "\" data-preview-url=\"" + escapeHtml(links[j].URL) + "\" data-preview-type=\"" + escapeHtml(links[j].Type) + "\" aria-label=\"" + escapeHtml(links[j].Text + "のPDFを確認") + "\">PDF確認</button></li>");
+        html.push("<li><a href=\"" + escapeHtml(DataService.getPublicLinkUrl(links[j].URL)) + "\" target=\"_blank\" rel=\"noopener noreferrer\">" + escapeHtml(links[j].Text) + "</a> <button type=\"button\" class=\"button button-small button-secondary pdf-preview-button\" data-list=\"" + kind + "\" data-link-id=\"" + escapeHtml(links[j].ID) + "\" data-preview-url=\"" + escapeHtml(links[j].URL) + "\" data-preview-type=\"" + escapeHtml(links[j].Type) + "\" aria-label=\"" + escapeHtml(links[j].Text + "のPDFを確認") + "\" title=\"" + escapeHtml(pdfPreviewTitle(kind, links[j])) + "\">PDF確認</button></li>");
       }
       if (!links.length) {
         if (isAdditionWork(announcements[i])) {
