@@ -62,7 +62,10 @@
     cells.push("<td align=\"center\">" + escapeHtml(announcement.BidDate) + "</td>");
     cells.push("<td align=\"center\">" + escapeHtml(announcement.Remarks) + "</td>");
     cells.push("</tr>");
-    return cells.join("");
+    return cells.map(function (cell) {
+      var indent = /^<\/?tr\b/.test(cell) ? "  " : (/^<\/?td\b/.test(cell) ? "    " : "      ");
+      return indent + cell;
+    }).join("\r\n");
   }
 
   function replaceDate(source, dateText) {
@@ -80,7 +83,9 @@
       }
       throw new Error("koukoku.html の公告テーブルを見つけられませんでした。");
     }
-    return source.replace(pattern, "$1" + rows + "$2");
+    return source.replace(pattern, function (match, opening, closing) {
+      return opening + "\r\n" + rows + (rows ? "\r\n" : "") + closing;
+    });
   }
 
   function disableDateSorting(source) {
@@ -145,7 +150,7 @@
     source = disableDateSorting(templateSource);
     source = replaceDate(source, currentDate);
     source = replaceFiscalYear(source, fiscalYear);
-    return replaceRows(source, rows.join(""));
+    return replaceRows(source, rows.join("\r\n"));
   };
 
   HtmlExport.openPreview = function (announcements, links, settings, fiscalYear) {
