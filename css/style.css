@@ -871,3 +871,37 @@ a {
   padding: 0;
   margin: 0 4px 0 0;
 }
+
+/* Locked fields remain legible and visibly distinct in IE11 and both themes. */
+#announcement-form input:disabled,
+#announcement-form select:disabled,
+#announcement-form textarea:disabled,
+#announcement-form button:disabled,
+#announcement-form input[readonly]:not(#date-input),
+#announcement-form textarea[readonly],
+#announcement-form[data-metadata-locked="true"] #date-input {
+  background: #e5e7eb;
+  color: #555f6b;
+  border-color: #b5bdc7;
+  opacity: 1;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+[data-theme="dark"] #announcement-form input:disabled,
+[data-theme="dark"] #announcement-form select:disabled,
+[data-theme="dark"] #announcement-form textarea:disabled,
+[data-theme="dark"] #announcement-form button:disabled,
+[data-theme="dark"] #announcement-form input[readonly]:not(#date-input),
+[data-theme="dark"] #announcement-form textarea[readonly],
+[data-theme="dark"] #announcement-form[data-metadata-locked="true"] #date-input {
+  background: #39434d;
+  color: #c1c8cf;
+  border-color: #697580;
+}
+#announcement-form .locked-fields-hint { display: none; }
+#announcement-form[data-metadata-locked="true"] .locked-fields-hint {
+  display: block;
+  margin: 0 0 12px;
+  color: #555f6b;
+}
+[data-theme="dark"] #announcement-form .locked-fields-hint { color: #c1c8cf; }

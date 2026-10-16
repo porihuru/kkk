@@ -566,6 +566,7 @@
       byId("form-message").textContent = "元の公告が掲載中ではないため追加できません。"; return;
     }
     clearForm(); additionWorkMode = true;
+    byId("announcement-form").setAttribute("data-metadata-locked", "true");
     editingList = "planned";
     byId("announcement-id").value = task.ID;
     byId("category-input").value = "NEW";
@@ -752,6 +753,7 @@
   }
 
   function setResultFormMode(active) {
+    byId("announcement-form").setAttribute("data-metadata-locked", active ? "true" : "false");
     byId("addition-source-items").style.display = "none";
     byId("addition-source-items").innerHTML = "";
     byId("pdf-editor-heading").textContent = "品目・PDFリンク";
