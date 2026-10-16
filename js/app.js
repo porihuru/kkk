@@ -288,6 +288,15 @@
       pdfInput("link-url-input", rowIndex).value = "";
       return;
     }
+    // Keep the stored destination when editing metadata without a replacement PDF.
+    var editingId = byId("announcement-id").value;
+    var existingLink = editingId ? linksFor(editingId, listState(editingList).links)[rowIndex] : null;
+    var replacementInput = pdfInput("pdf-file-input", rowIndex);
+    var replacementFile = replacementInput.files && replacementInput.files.length ? replacementInput.files[0] : null;
+    if (existingLink && existingLink.URL && !replacementFile) {
+      pdfInput("link-url-input", rowIndex).value = existingLink.URL;
+      return;
+    }
     if (!global.FilenameGenerator) {
       pdfInput("link-url-input", rowIndex).value = "";
       return;
@@ -350,6 +359,7 @@
             byId("form-message").textContent = "選択したPDFを保存できません。右上の「診断」で内容を確認してください。";
           }
           if (resultWorkMode) { updateResultPdfLink(rowIndex); }
+          else { updatePdfLink(rowIndex); }
         };
         byId("pdf-file-clear-" + (rowIndex + 1)).onclick = function () { clearResultPdf(rowIndex); };
       }(i));
@@ -1305,7 +1315,12 @@
           byId("form-message").textContent = "選択した公告PDFを保存できません。右上の「診断」で内容を確認してください。";
           return false;
         }
-        linkRecords.push({ rowIndex: i, text: text, url: url });
+        var originalLink = announcement ? linksFor(id, state.links)[i] : null;
+        if (originalLink && !file && url !== originalLink.URL) {
+          byId("form-message").textContent = "保存済みPDFのリンクだけを変更できません。PDFを選び直してください。";
+          return false;
+        }
+        linkRecords.push({ rowIndex: i, text: text, url: url, originalLink: originalLink });
       }
     }
     if (!byId("date-input").value || !linkRecords.length) {
@@ -1338,13 +1353,13 @@
     announcement.ListKind = targetKind;
     links = linksFor(id, state.links);
     for (i = 0; i < linkRecords.length; i += 1) {
-      linkRecords[i].link = links[i] || { ID: nextLinkId(state.links), KokokuID: id, Type: "公告" };
+      linkRecords[i].link = linkRecords[i].originalLink || { ID: nextLinkId(state.links), KokokuID: id, Type: "公告" };
       link = linkRecords[i].link;
       link.Text = linkRecords[i].text;
       link.URL = linkRecords[i].url;
       link.FileName = fileNameFromUrl(link.URL);
       link.Sort = String(i + 1);
-      if (!links[i]) {
+      if (!linkRecords[i].originalLink) {
         state.links.push(link);
       }
       fileInput = pdfInput("pdf-file-input", linkRecords[i].rowIndex);
@@ -1356,11 +1371,11 @@
     }
     // Rows beyond the editor limit may be appended announcements; preserve them.
     var retainedExtraLinks = links.slice(PDF_ROW_COUNT);
-    for (i = Math.min(links.length, PDF_ROW_COUNT) - 1; i >= linkRecords.length; i -= 1) {
+    for (i = Math.min(links.length, PDF_ROW_COUNT) - 1; i >= 0; i -= 1) {
+      if (linkRecords.some(function (record) { return record.link === links[i]; })) { continue; }
       removedLinks.push(links[i]);
       delete selectedPdfFiles[pdfKey(targetKind, links[i].ID)];
       state.links.splice(state.links.indexOf(links[i]), 1);
-
     }
     links = [];
     for (i = 0; i < linkRecords.length; i += 1) {
