@@ -366,6 +366,41 @@
     }
   }
 
+  function ensurePdfRows(count) {
+    var template = pdfInput("link-text-input", 0).parentNode;
+    while (PDF_ROW_COUNT < count) {
+      var row = template.cloneNode(true), number = PDF_ROW_COUNT + 1;
+      var nodes = row.getElementsByTagName("*");
+      for (var i = 0; i < nodes.length; i += 1) {
+        if (nodes[i].id) { nodes[i].id = nodes[i].id.replace(/-1$/, "-" + number); }
+        if (nodes[i].getAttribute("for")) { nodes[i].setAttribute("for", nodes[i].getAttribute("for").replace(/-1$/, "-" + number)); }
+        if (nodes[i].tagName.toLowerCase() === "input") { nodes[i].value = ""; nodes[i].disabled = false; }
+        if (nodes[i].getAttribute("data-row") !== null) { nodes[i].setAttribute("data-row", String(number - 1)); }
+        if (nodes[i].className === "pdf-row-number") { nodes[i].textContent = String(number); }
+      }
+      template.parentNode.appendChild(row);
+      PDF_ROW_COUNT = number;
+    }
+    setupPdfFilename();
+  }
+
+  function pdfItemsHtml(links, kind, label) {
+    return links.map(function (link) {
+      return '<li style="white-space:normal;overflow:visible;">' + (label ? '<small>' + escapeHtml(label) + '</small> ' : '') +
+        '<a href="' + escapeHtml(DataService.getPublicLinkUrl(link.URL)) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(link.Text) + '</a> ' +
+        '<button type="button" class="button button-small button-secondary pdf-preview-button" data-list="' + kind + '" data-link-id="' + escapeHtml(link.ID) + '" data-preview-url="' + escapeHtml(link.URL) + '" data-preview-type="' + escapeHtml(link.Type) + '" title="' + escapeHtml(pdfPreviewTitle(kind, link)) + '">PDF確認</button></li>';
+    }).join("");
+  }
+
+  function showAdditionSource(task) {
+    var panel = byId("addition-source-items");
+    panel.innerHTML = '<div class="pdf-links-heading">登録済みの品目・PDF（参照専用）</div><ul class="link-list">' +
+      pdfItemsHtml(linksFor(task.SourceAnnouncementID, allLinks), "published", "登録済み") + '</ul>';
+    panel.style.display = "block";
+    byId("pdf-editor-heading").textContent = "追加する品目・PDF";
+    bindRowActions();
+  }
+
   function resultPdfUrl(fileName) {
     var source = announcementById(editingResultSourceId, allAnnouncements);
     var fiscalYear = source ? itemFiscalYear(source) : fiscalYearForBidDate(byId("date-input").value);
@@ -516,6 +551,8 @@
     ["category-input", "garrison-input", "status-input", "date-picker-button", "date-picker-input", "hide-bid-date"].forEach(function (id) { byId(id).disabled = true; });
     byId("remarks-input").readOnly = true;
     var links = linksFor(task.ID, plannedLinks);
+    ensurePdfRows(links.length);
+    showAdditionSource(task);
     for (var i = 0; i < PDF_ROW_COUNT; i += 1) {
       pdfInput("link-text-input", i).value = links[i] ? links[i].Text : "";
       pdfInput("link-url-input", i).value = links[i] ? links[i].URL : "";
@@ -688,6 +725,9 @@
   }
 
   function setResultFormMode(active) {
+    byId("addition-source-items").style.display = "none";
+    byId("addition-source-items").innerHTML = "";
+    byId("pdf-editor-heading").textContent = "品目・PDFリンク";
     additionWorkMode = false;
     byId("remarks-input").readOnly = false;
     for (var ai = 0; ai < PDF_ROW_COUNT; ai += 1) { pdfInput("link-url-input", ai).readOnly = false; }
@@ -875,7 +915,10 @@
     }
     var displayedIds = announcements.map(function (item) { return String(item.ID); });
     var linkCount = state.links.filter(function (item) { return displayedIds.indexOf(String(item.KokokuID)) >= 0; }).length;
-    countElement.textContent = "公告 " + announcements.length + "件（リンク " + linkCount + "件）";
+    var referenceCount = kind === "planned" ? announcements.reduce(function (count, item) {
+      return count + (isAdditionWork(item) ? linksFor(item.SourceAnnouncementID, allLinks).length : 0);
+    }, 0) : 0;
+    countElement.textContent = "公告 " + announcements.length + "件（リンク " + linkCount + "件" + (referenceCount ? "・元公告の参照 " + referenceCount + "件" : "") + "）";
     if (!announcements.length) {
       listElement.innerHTML = '<tr><td colspan="' + (kind === "planned" ? "12" : "10") + '" class="empty-row">該当する公告はありません。</td></tr>';
       return;
@@ -939,14 +982,13 @@
       html.push("<td><span class=\"" + categoryClass + "\">" + escapeHtml(announcements[i].Category) + "</span></td>");
       html.push("<td class=\"garrison-cell\">" + escapeHtml(announcements[i].Garrison) + "</td>");
       html.push("<td class=\"subject-cell\"><ul class=\"link-list\">");
-      for (j = 0; j < links.length; j += 1) {
-        html.push("<li><a href=\"" + escapeHtml(DataService.getPublicLinkUrl(links[j].URL)) + "\" target=\"_blank\" rel=\"noopener noreferrer\">" + escapeHtml(links[j].Text) + "</a> <button type=\"button\" class=\"button button-small button-secondary pdf-preview-button\" data-list=\"" + kind + "\" data-link-id=\"" + escapeHtml(links[j].ID) + "\" data-preview-url=\"" + escapeHtml(links[j].URL) + "\" data-preview-type=\"" + escapeHtml(links[j].Type) + "\" aria-label=\"" + escapeHtml(links[j].Text + "のPDFを確認") + "\" title=\"" + escapeHtml(pdfPreviewTitle(kind, links[j])) + "\">PDF確認</button></li>");
-      }
-      if (!links.length) {
-        if (isAdditionWork(announcements[i])) {
-          html.push("<li>追加元：" + escapeHtml(linksFor(announcements[i].SourceAnnouncementID, allLinks).map(function (link) { return link.Text; }).join(" / ")) + "</li>");
-        }
-        html.push("<li>（PDF未登録）</li>");
+      if (kind === "planned" && isAdditionWork(announcements[i])) {
+        html.push(pdfItemsHtml(linksFor(announcements[i].SourceAnnouncementID, allLinks), "published", "登録済み"));
+        html.push(pdfItemsHtml(links, kind, "追加"));
+        if (!links.length) { html.push("<li>追加公告PDF：未登録</li>"); }
+      } else {
+        html.push(pdfItemsHtml(links, kind, ""));
+        if (!links.length) { html.push("<li>（PDF未登録）</li>"); }
       }
       html.push("</ul></td>");
       html.push("<td>" + escapeHtml(announcements[i].BidDate) + (PublicationWorkflow.hideBidDate(announcements[i]) ? "<br><small>公開時は非表示</small>" : "") + "</td>");
@@ -1028,6 +1070,7 @@
     setResultFormMode(false);
     editingList = kind;
     links = linksFor(announcement.ID, state.links);
+    ensurePdfRows(links.length);
     byId("announcement-id").value = announcement.ID;
     byId("category-input").value = announcement.Category;
     byId("garrison-input").value = announcement.Garrison;
@@ -1068,6 +1111,7 @@
     }
     if (!requireActiveFiscalYear(itemFiscalYear(source))) { return; }
     links = linksFor(task.ID, plannedLinks);
+    ensurePdfRows(links.length);
     editingList = "planned";
     editingResultSourceId = String(source.ID);
     setResultFormMode(true);
@@ -1687,6 +1731,9 @@
       for (i = 0; i < state.announcements.length; i += 1) {
         text = [state.announcements[i].Category, state.announcements[i].Garrison, state.announcements[i].BidDate, state.announcements[i].Remarks].join(" ").toLowerCase();
         links = linksFor(state.announcements[i].ID, state.links);
+        if (kind === "planned" && isAdditionWork(state.announcements[i])) {
+          links = links.concat(linksFor(state.announcements[i].SourceAnnouncementID, allLinks));
+        }
         for (linkIndex = 0; linkIndex < links.length; linkIndex += 1) {
           text += " " + String(links[linkIndex].Text || "").toLowerCase();
         }
@@ -2299,4 +2346,5 @@
 
   global.onload = start;
 }(this));
+
 
