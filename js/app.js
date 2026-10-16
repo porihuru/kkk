@@ -1118,7 +1118,8 @@
     ["Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate"].concat(PublicationWorkflow.fields).forEach(function (key) { payload[key] = announcement[key] || ""; });
     payload.ListKind = kind;
     links.forEach(function (link) {
-      var file = selectedFiles[pdfKey(kind, link.ID)] || selectedPdfFiles[pdfKey(kind, link.ID)];
+      // Cached PDFs are for preview/ZIP; only files selected for this save need uploading.
+      var file = selectedFiles[pdfKey(kind, link.ID)];
       if (file) {
         var uploadTask = function (ok, fail) { DataService.uploadPdf(file, link.FileName || fileNameFromUrl(link.URL), ok, fail, isResultWork(announcement) ? "結果PDF" : "公告PDF", itemFiscalYear(announcement)); };
         uploadTask.phase = "PDFアップロード・チェックイン確認中：" + (link.FileName || fileNameFromUrl(link.URL));
