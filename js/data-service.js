@@ -106,7 +106,7 @@
     var failed = false;
     var lists = [
       { key: "settings", name: config.SETTINGS_LIST, columns: ["Id", "Type", "Text", "URL", "Sort"] },
-      { key: "announcements", name: config.ANNOUNCEMENT_LIST, columns: ["Id", "AuthorId", "Author/Title", "Created", "Category", "Garrison", "BidDate", "HideBidDate", "Remarks", "Sort", "Status", "OperationDate", "FiscalYear", "ListKind", "PublicState", "VerifiedAt", "WorkType", "SourceAnnouncementID", "WorkflowKey", "ResultSubmittedById", "ResultSubmittedByName", "ResultSubmittedAt"] },
+      { key: "announcements", name: config.ANNOUNCEMENT_LIST, columns: ["Id", "AuthorId", "Author/Title", "Created", "EditorId", "Editor/Title", "Modified", "Category", "Garrison", "BidDate", "HideBidDate", "Remarks", "Sort", "Status", "OperationDate", "FiscalYear", "ListKind", "PublicState", "VerifiedAt", "WorkType", "SourceAnnouncementID", "WorkflowKey", "ResultSubmittedById", "ResultSubmittedByName", "ResultSubmittedAt"] },
       { key: "links", name: config.LINK_LIST, columns: ["Id", "KokokuID", "Text", "FileName", "URL", "Type", "Sort"] }
     ];
     var i;
@@ -362,19 +362,40 @@
   };
 
   DataService.add = function (kind, data, success, error) {
+    var metadata = operationMetadata();
+    if (kind === "announcements") { data.OperationDate = metadata.OperationDate; }
+    function saved(result) {
+      if (kind === "announcements" && result) {
+        Object.keys(metadata).forEach(function (key) { result[key] = metadata[key]; });
+      }
+      if (success) { success(result); }
+    }
     if (String(currentConfig.DATA_MODE || "CSV").toUpperCase() === "SHAREPOINT") {
-      SP.add(listName(kind), data, success, error);
+      SP.add(listName(kind), data, saved, error);
       return;
     }
-    if (success) { success(data); }
+    saved(data);
   };
 
+  function operationMetadata() {
+    var now = new Date().toISOString(), user = DataService.getCurrentUser() || {};
+    return {EditorId: String(user.id || ""), EditorName: user.name || "不明", Modified: now, OperationDate: now};
+  }
+
+  DataService.operationMetadata = operationMetadata;
+
   DataService.update = function (kind, itemId, data, success, error, database) {
+    var metadata = operationMetadata();
+    if (kind === "announcements") { data.OperationDate = metadata.OperationDate; }
+    function saved(result) {
+      if (kind === "announcements" && DataService.onAnnouncementSaved) { DataService.onAnnouncementSaved(itemId, metadata, database); }
+      if (success) { success(result); }
+    }
     if (String(currentConfig.DATA_MODE || "CSV").toUpperCase() === "SHAREPOINT") {
-      SP.update(database && kind === "announcements" ? databaseConfig(currentConfig, database).announcementList : listName(kind), itemId, data, success, error);
+      SP.update(database && kind === "announcements" ? databaseConfig(currentConfig, database).announcementList : listName(kind), itemId, data, saved, error);
       return;
     }
-    if (success) { success(data); }
+    saved(data);
   };
 
   DataService.remove = function (kind, itemId, success, error) {
@@ -512,4 +533,5 @@
 
   global.DataService = DataService;
 }(this));
+
 

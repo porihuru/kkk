@@ -6,6 +6,9 @@
     "ID": "Id",
     "AuthorId": "AuthorId",
     "Created": "Created",
+    "EditorId": "EditorId",
+    "Editor/Title": "Editor/Title",
+    "Modified": "Modified",
     "ListKind": "listkind",
     "PublicState": "publicstate",
     "VerifiedAt": "verifiedat",
@@ -182,6 +185,7 @@
     var logical;
     var internal;
     if (item.Author && item.Author.Title) { item.AuthorName = item.Author.Title; }
+    if (item.Editor && item.Editor.Title) { item.EditorName = item.Editor.Title; }
     for (logical in FIELD_MAP) {
       if (FIELD_MAP.hasOwnProperty(logical)) {
         internal = fieldName(logical, currentSchema);
@@ -205,7 +209,10 @@
       if (selected.length) {
         url += "&$select=" + encodeURIComponent(selected.join(","));
       }
-      if (selected.indexOf("Author/Title") >= 0) { url += "&$expand=Author"; }
+      var expanded = [];
+      if (selected.indexOf("Author/Title") >= 0) { expanded.push("Author"); }
+      if (selected.indexOf("Editor/Title") >= 0) { expanded.push("Editor"); }
+      if (expanded.length) { url += "&$expand=" + expanded.join(","); }
       function loadPage(pageUrl) {
         request("GET", pageUrl, { "Accept": "application/json;odata=verbose" }, null, function (xhr) {
         var page;
@@ -444,4 +451,5 @@
 
   global.SP = SP;
 }(this));
+
 
