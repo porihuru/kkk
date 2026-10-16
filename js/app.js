@@ -605,6 +605,21 @@
     return item && item.WorkType === "RESULT";
   }
 
+  function resultOriginalAuthor(task) {
+    return task && announcementById(task.SourceAnnouncementID, allAnnouncements);
+  }
+
+  function canEditResult(task) {
+    var source = resultOriginalAuthor(task);
+    var user = DataService.getCurrentUser();
+    return !!(source && user && source.AuthorId && String(source.AuthorId) === String(user.id));
+  }
+
+  function canManageAnnouncement(item, kind, active) {
+    if (kind === "planned" && isResultWork(item)) { return canEditResult(item); }
+    return DataService.canManageAnnouncement(item, kind, active);
+  }
+
   function resultWorkBySource(sourceId, includeVirtual) {
     var i;
     for (i = 0; i < plannedAnnouncements.length; i += 1) {
@@ -646,9 +661,9 @@
       if (PublicationWorkflow.state(source) !== "掲載終了" || sourceHasPublishedResult(source) || resultWorkBySource(source.ID, false)) { continue; }
       task = {
         ID: "result-" + source.ID,
-        AuthorId: "",
-        AuthorName: "未担当",
-        Created: "",
+        AuthorId: source.AuthorId || "",
+        AuthorName: source.AuthorName || "元の投稿者不明",
+        Created: source.Created || "",
         Category: "結果",
         Garrison: source.Garrison,
         BidDate: source.BidDate, HideBidDate: source.HideBidDate || "",
@@ -867,7 +882,7 @@
     }
 
     for (i = 0; i < announcements.length; i += 1) {
-      canOperate = DataService.canManageAnnouncement(announcements[i], kind, adminActive);
+      canOperate = canManageAnnouncement(announcements[i], kind, adminActive);
       links = linksFor(announcements[i].ID, state.links);
       if (kind === "published" && announcements[i].PublicState && announcements[i].PublicState !== "公告掲載中") {
         try { links = PublicationWorkflow.candidate([announcements[i]], links, DataService.getPublicationConfig(itemFiscalYear(announcements[i])).endedUrl).links; } catch (error) { links = []; }
@@ -889,7 +904,7 @@
       if (kind === "planned" && isAdditionWork(announcements[i])) {
         html.push('<button type="button" class="button button-small addition-work-button" data-id="' + escapeHtml(announcements[i].ID) + '">公告追加作業</button>');
       }
-      if (kind === "planned" && isResultWork(announcements[i])) {
+      if (kind === "planned" && isResultWork(announcements[i]) && canEditResult(announcements[i])) {
         html.push("<button type=\"button\" class=\"button button-small result-work-button\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">結果作業</button>");
       }
       if (kind === "planned" && adminActive && !announcements[i]._virtualResult) {
@@ -910,7 +925,7 @@
       html.push("</td>");
       html.push("<td class=\"operation-date-cell\">" + escapeHtml(announcements[i].OperationDate || "—") + "</td>");
       if (kind === "planned") {
-        html.push("<td class=\"author-cell\">" + escapeHtml(announcements[i].AuthorName || (announcements[i].AuthorId ? "ID: " + announcements[i].AuthorId : "不明")) + "</td>");
+        html.push("<td class=\"author-cell\">" + escapeHtml(isResultWork(announcements[i]) ? ((resultOriginalAuthor(announcements[i]) || {}).AuthorName || ((resultOriginalAuthor(announcements[i]) || {}).AuthorId ? "ID: " + resultOriginalAuthor(announcements[i]).AuthorId : "元の投稿者不明")) : (announcements[i].AuthorName || (announcements[i].AuthorId ? "ID: " + announcements[i].AuthorId : "不明"))) + "</td>");
         html.push("<td class=\"operation-date-cell\">" + escapeHtml(postingDateText(announcements[i].Created)) + "</td>");
       }
       statusText = kind === "published" ? (announcements[i].Status === "公開待ち" && PublicationWorkflow.state(announcements[i]) !== "掲載終了" ? "公開待ち" : PublicationWorkflow.state(announcements[i])) : announcements[i].Status;
@@ -999,8 +1014,9 @@
     var state = listState(kind);
     var announcement = announcementById(this.getAttribute("data-id"), state.announcements);
     var links;
+    if (isResultWork(announcement)) { beginResultWork.call(this); return; }
     if (isAdditionWork(announcement)) { beginAdditionWork.call(this); return; }
-    if (!DataService.canManageAnnouncement(announcement, kind, adminActive)) {
+    if (!canManageAnnouncement(announcement, kind, adminActive)) {
       return;
     }
     if (!announcement) {
@@ -1038,8 +1054,8 @@
     var links;
     var rowIndex;
     if (!task || !isResultWork(task) || !DataService.getCurrentUser()) { return; }
-    if (!task._virtualResult && !DataService.canManageAnnouncement(task, "planned", adminActive)) {
-      byId("form-message").textContent = "この結果は別のユーザーが保存済みです。修正は結果投稿者または管理者が行ってください。";
+    if (!canEditResult(task)) {
+      byId("form-message").textContent = "この結果作業を修正できるのは元の公告の投稿者本人だけです。";
       return;
     }
     source = announcementById(task.SourceAnnouncementID, allAnnouncements);
@@ -1168,8 +1184,8 @@
       return false;
     }
     if (!requireActiveFiscalYear(itemFiscalYear(source))) { return false; }
-    if (!task._virtualResult && !DataService.canManageAnnouncement(task, "planned", adminActive)) {
-      byId("form-message").textContent = "この結果は別のユーザーが保存済みです。";
+    if (!canEditResult(task)) {
+      byId("form-message").textContent = "この結果作業を保存できるのは元の公告の投稿者本人だけです。";
       return false;
     }
     links = linksFor(task.ID, plannedLinks);
@@ -1277,7 +1293,7 @@
       event.preventDefault();
     }
     if (additionWorkMode || isAdditionWork(announcement)) { return saveAdditionWork(); }
-    if (resultWorkMode) { return saveResultWork(); }
+    if (resultWorkMode || isResultWork(announcement)) { return saveResultWork(); }
     if (filenameComposing.some(function (value) { return value; })) {
       byId("form-message").textContent = "品名の日本語変換を確定してください。"; return false;
     }
@@ -1289,7 +1305,7 @@
       byId("form-message").textContent = "初期データまたは利用者情報の読み込みが完了していないため、登録できません。テスト用Webサイトでは「CSVモード」を選び「切替」を押してください。解消しない場合は右上の「診断」を確認してください。";
       return false;
     }
-    if (id && (!announcement || !DataService.canManageAnnouncement(announcement, targetKind, adminActive))) {
+    if (id && (!announcement || !canManageAnnouncement(announcement, targetKind, adminActive))) {
       byId("form-message").innerHTML = "この投稿を修正する権限がありません。";
       return false;
     }
@@ -1447,7 +1463,7 @@
     var item = announcementById(id, state.announcements), links = linksFor(id, state.links);
     if (!item || !requireActiveFiscalYear(itemFiscalYear(item))) { return; }
     if (isAdditionWork(item) && !adminActive) { return; }
-    if (!DataService.canManageAnnouncement(item, kind, adminActive) || !window.confirm("この公告を削除しますか？")) { return; }
+    if (!canManageAnnouncement(item, kind, adminActive) || !window.confirm("この公告を削除しますか？")) { return; }
     function deleted() {
       deletedAnnouncements.unshift({ deletedAt: new Date().toLocaleString(), announcement: copyObject(item), links: links.map(copyObject) });
       state.announcements.splice(state.announcements.indexOf(item), 1);
