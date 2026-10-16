@@ -106,7 +106,7 @@
     var failed = false;
     var lists = [
       { key: "settings", name: config.SETTINGS_LIST, columns: ["Id", "Type", "Text", "URL", "Sort"] },
-      { key: "announcements", name: config.ANNOUNCEMENT_LIST, columns: ["Id", "AuthorId", "Author/Title", "Created", "Category", "Garrison", "BidDate", "Remarks", "Sort", "Status", "OperationDate", "FiscalYear", "ListKind", "PublicState", "VerifiedAt", "WorkType", "SourceAnnouncementID", "WorkflowKey", "ResultSubmittedById", "ResultSubmittedByName", "ResultSubmittedAt"] },
+      { key: "announcements", name: config.ANNOUNCEMENT_LIST, columns: ["Id", "AuthorId", "Author/Title", "Created", "Category", "Garrison", "BidDate", "HideBidDate", "Remarks", "Sort", "Status", "OperationDate", "FiscalYear", "ListKind", "PublicState", "VerifiedAt", "WorkType", "SourceAnnouncementID", "WorkflowKey", "ResultSubmittedById", "ResultSubmittedByName", "ResultSubmittedAt"] },
       { key: "links", name: config.LINK_LIST, columns: ["Id", "KokokuID", "Text", "FileName", "URL", "Type", "Sort"] }
     ];
     var i;

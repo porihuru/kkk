@@ -59,7 +59,7 @@
       anchorCount += 1;
     }
     cells.push("</td>");
-    cells.push("<td align=\"center\">" + escapeHtml(announcement.BidDate) + "</td>");
+    cells.push("<td align=\"center\">" + escapeHtml(/^(1|true)$/i.test(String(announcement.HideBidDate || "")) ? "" : announcement.BidDate) + "</td>");
     cells.push("<td align=\"center\">" + escapeHtml(announcement.Remarks) + "</td>");
     cells.push("</tr>");
     return cells.map(function (cell) {

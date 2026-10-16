@@ -1,7 +1,8 @@
 (function (global) {
   "use strict";
   var W = {};
-  W.fields = ["FiscalYear", "ListKind", "PublicState", "VerifiedAt", "WorkType", "SourceAnnouncementID", "WorkflowKey", "ResultSubmittedById", "ResultSubmittedByName", "ResultSubmittedAt"];
+  W.fields = ["HideBidDate", "FiscalYear", "ListKind", "PublicState", "VerifiedAt", "WorkType", "SourceAnnouncementID", "WorkflowKey", "ResultSubmittedById", "ResultSubmittedByName", "ResultSubmittedAt"];
+  W.hideBidDate = function (item) { return /^(1|true)$/i.test(String(item && item.HideBidDate || "")); };
   W.copy = function (item) { var result = {}, key; for (key in item) { if (item.hasOwnProperty(key)) { result[key] = item[key]; } } return result; };
   W.fiscalYear = function (bidDate) {
     var match = /^R(\d+)\.(\d+)\.(\d+)$/.exec(String(bidDate || ""));
@@ -57,7 +58,7 @@
   W.signature = function (data, resolveUrl) {
     function text(value) { return String(value || "").replace(/\s+/g, " ").replace(/^\s+|\s+$/g, ""); }
     return JSON.stringify(data.announcements.map(function (item) {
-      return [text(item.Category), text(item.Garrison), text(item.BidDate), text(item.Remarks), data.links.filter(function (link) { return String(link.KokokuID) === String(item.ID); }).sort(function (a,b) { return Number(a.Sort || 0)-Number(b.Sort || 0); }).map(function (link) { return [text(link.Text), resolveUrl(link.URL)]; })];
+      return [text(item.Category), text(item.Garrison), text(W.hideBidDate(item) ? "" : item.BidDate), text(item.Remarks), data.links.filter(function (link) { return String(link.KokokuID) === String(item.ID); }).sort(function (a,b) { return Number(a.Sort || 0)-Number(b.Sort || 0); }).map(function (link) { return [text(link.Text), resolveUrl(link.URL)]; })];
     }));
   };
   global.PublicationWorkflow = W;

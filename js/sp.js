@@ -27,6 +27,7 @@
     "Category": "category",
     "Garrison": "garrison",
     "BidDate": "biddate",
+    "HideBidDate": "hidebiddate",
     "Remarks": "remarks",
     "KokokuID": "kokokuid",
     "FileName": "filename"
@@ -167,6 +168,7 @@
     var i;
     var name;
     for (i = 0; i < columns.length; i += 1) {
+      if (columns[i] === "HideBidDate" && !currentSchema.byName.hidebiddate) { continue; }
       name = fieldName(columns[i], currentSchema);
       if (!used[name]) {
         used[name] = true;
@@ -248,7 +250,17 @@
           var body = { "__metadata": { "type": type } };
           var key;
           var title = escapeTitle(listName);
-          for (key in data) { if (data.hasOwnProperty(key)) { body[fieldName(key, currentSchema)] = data[key]; } }
+          for (key in data) {
+            if (!data.hasOwnProperty(key)) { continue; }
+            if (key === "HideBidDate" && !currentSchema.byName.hidebiddate) {
+              if (/^(1|true)$/i.test(String(data[key] || ""))) {
+                if (error) { error({status:400, responseText:"リスト " + listName + " に hidebiddate（1行テキスト）列を追加して再読み込みしてください。入札日の非表示設定を保存できません。"}); }
+                return;
+              }
+              continue;
+            }
+            body[fieldName(key, currentSchema)] = data[key];
+          }
           request("POST", SP.api + "/web/lists/getbytitle('" + title + "')/items", { "Accept": "application/json;odata=verbose", "Content-Type": "application/json;odata=verbose", "X-RequestDigest": digest }, JSON.stringify(body), function (xhr) {
             var result;
             try {
@@ -288,7 +300,17 @@
           var body = { "__metadata": { "type": type } };
           var key;
           var title = escapeTitle(listName);
-          for (key in data) { if (data.hasOwnProperty(key)) { body[fieldName(key, currentSchema)] = data[key]; } }
+          for (key in data) {
+            if (!data.hasOwnProperty(key)) { continue; }
+            if (key === "HideBidDate" && !currentSchema.byName.hidebiddate) {
+              if (/^(1|true)$/i.test(String(data[key] || ""))) {
+                if (error) { error({status:400, responseText:"リスト " + listName + " に hidebiddate（1行テキスト）列を追加して再読み込みしてください。入札日の非表示設定を保存できません。"}); }
+                return;
+              }
+              continue;
+            }
+            body[fieldName(key, currentSchema)] = data[key];
+          }
           guardedWrite(listName, itemId, SP.api + "/web/lists/getbytitle('" + title + "')/items(" + itemId + ")", { "Accept": "application/json;odata=verbose", "Content-Type": "application/json;odata=verbose", "X-RequestDigest": digest, "X-HTTP-Method": "MERGE", "IF-MATCH": "*" }, JSON.stringify(body), success, error);
         }, error);
       }, error);

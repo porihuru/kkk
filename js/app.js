@@ -478,7 +478,7 @@
     var user = DataService.getCurrentUser();
     if (!user) { return; }
     var task = { ID: nextId(plannedAnnouncements), AuthorId: String(user.id), AuthorName: user.name, Created: new Date().toISOString(),
-      Category: "NEW", Garrison: source.Garrison, BidDate: source.BidDate, FiscalYear: itemFiscalYear(source),
+      Category: "NEW", Garrison: source.Garrison, BidDate: source.BidDate, HideBidDate: source.HideBidDate || "", FiscalYear: itemFiscalYear(source),
       Remarks: source.Remarks || "", Sort: "0", Status: "公告追加作業", OperationDate: operationDateText(),
       ListKind: "planned", WorkType: "ADDITION", SourceAnnouncementID: String(source.ID), WorkflowKey: "ADDITION:" + source.ID };
     function applied() {
@@ -509,10 +509,11 @@
     byId("announcement-id").value = task.ID;
     byId("category-input").value = "NEW";
     byId("garrison-input").value = source.Garrison;
-    byId("date-input").value = source.BidDate; syncDatePicker();
+    byId("date-input").value = source.BidDate;
+    byId("hide-bid-date").checked = PublicationWorkflow.hideBidDate(source); syncDatePicker();
     byId("status-input").value = "公告登録";
     byId("remarks-input").value = source.Remarks || "";
-    ["category-input", "garrison-input", "status-input", "date-picker-button", "date-picker-input"].forEach(function (id) { byId(id).disabled = true; });
+    ["category-input", "garrison-input", "status-input", "date-picker-button", "date-picker-input", "hide-bid-date"].forEach(function (id) { byId(id).disabled = true; });
     byId("remarks-input").readOnly = true;
     var links = linksFor(task.ID, plannedLinks);
     for (var i = 0; i < PDF_ROW_COUNT; i += 1) {
@@ -556,7 +557,7 @@
     });
     var removed = old.filter(function (link) { return links.indexOf(link) < 0; });
     removed.forEach(function (link) { plannedLinks.splice(plannedLinks.indexOf(link), 1); delete selectedPdfFiles[pdfKey("planned", link.ID)]; });
-    task.Status = "公告追加登録"; task.Category = "NEW"; task.Garrison = source.Garrison; task.BidDate = source.BidDate;
+    task.Status = "公告追加登録"; task.Category = "NEW"; task.Garrison = source.Garrison; task.BidDate = source.BidDate; task.HideBidDate = source.HideBidDate || "";
     task.Remarks = source.Remarks || ""; task.OperationDate = operationDateText();
     task.ResultSubmittedById = String(user.id); task.ResultSubmittedByName = user.name; task.ResultSubmittedAt = new Date().toISOString();
     clearForm(); filterAnnouncements();
@@ -650,7 +651,7 @@
         Created: "",
         Category: "結果",
         Garrison: source.Garrison,
-        BidDate: source.BidDate,
+        BidDate: source.BidDate, HideBidDate: source.HideBidDate || "",
         FiscalYear: itemFiscalYear(source),
         Remarks: source.Remarks,
         Sort: String(plannedAnnouncements.length + 1),
@@ -682,6 +683,7 @@
     byId("date-input").readOnly = true;
     byId("date-picker-button").disabled = active;
     byId("date-picker-input").disabled = active;
+    byId("hide-bid-date").disabled = active;
     byId("status-input").disabled = active;
     for (i = 0; i < PDF_ROW_COUNT; i += 1) {
       pdfInput("link-text-input", i).readOnly = active;
@@ -929,7 +931,7 @@
         html.push("<li>（PDF未登録）</li>");
       }
       html.push("</ul></td>");
-      html.push("<td>" + escapeHtml(announcements[i].BidDate) + "</td>");
+      html.push("<td>" + escapeHtml(announcements[i].BidDate) + (PublicationWorkflow.hideBidDate(announcements[i]) ? "<br><small>公開時は非表示</small>" : "") + "</td>");
       html.push("<td class=\"remarks-cell\">" + escapeHtml(announcements[i].Remarks) + "</td>");
       html.push("</tr>");
     }
@@ -1011,6 +1013,7 @@
     byId("category-input").value = announcement.Category;
     byId("garrison-input").value = announcement.Garrison;
     byId("date-input").value = announcement.BidDate;
+    byId("hide-bid-date").checked = PublicationWorkflow.hideBidDate(announcement);
     syncDatePicker();
     byId("status-input").value = announcement.Status || "公告登録";
     byId("remarks-input").value = announcement.Remarks;
@@ -1053,6 +1056,7 @@
     byId("category-input").value = "結果";
     byId("garrison-input").value = source.Garrison;
     byId("date-input").value = source.BidDate;
+    byId("hide-bid-date").checked = PublicationWorkflow.hideBidDate(source);
     syncDatePicker();
     byId("status-input").value = "結果登録";
     byId("remarks-input").value = task.Remarks || source.Remarks || "";
@@ -1195,7 +1199,7 @@
         Created: now,
         Category: "結果",
         Garrison: source.Garrison,
-        BidDate: source.BidDate,
+        BidDate: source.BidDate, HideBidDate: source.HideBidDate || "",
         FiscalYear: itemFiscalYear(source),
         Remarks: byId("remarks-input").value,
         Sort: "1",
@@ -1223,7 +1227,7 @@
     } else {
       task.Category = "結果";
       task.Garrison = source.Garrison;
-      task.BidDate = source.BidDate;
+      task.BidDate = source.BidDate; task.HideBidDate = source.HideBidDate || "";
       task.FiscalYear = itemFiscalYear(source);
       task.Remarks = byId("remarks-input").value;
       task.Status = "結果登録";
@@ -1340,6 +1344,7 @@
     announcement.Category = byId("category-input").value;
     announcement.Garrison = byId("garrison-input").value;
     announcement.BidDate = byId("date-input").value;
+    announcement.HideBidDate = byId("hide-bid-date").checked ? "1" : "";
     announcement.FiscalYear = fiscalYearForBidDate(announcement.BidDate);
     requestedStatus = byId("status-input").value;
     announcement.Status = requestedStatus;
