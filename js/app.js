@@ -1140,7 +1140,15 @@
       // Cached PDFs are for preview/ZIP; only files selected for this save need uploading.
       var file = selectedFiles[pdfKey(kind, link.ID)];
       if (file) {
-        var uploadTask = function (ok, fail) { DataService.uploadPdf(file, link.FileName || fileNameFromUrl(link.URL), ok, fail, isResultWork(announcement) ? "結果PDF" : "公告PDF", itemFiscalYear(announcement)); };
+        var uploadTask = function (ok, fail) {
+          DataService.uploadPdf(file, link.FileName || fileNameFromUrl(link.URL), function (result) {
+            if (result && result.savedFileName) {
+              link.FileName = result.savedFileName;
+              link.URL = link.URL.substring(0, link.URL.lastIndexOf("/") + 1) + result.savedFileName;
+            }
+            ok();
+          }, fail, isResultWork(announcement) ? "結果PDF" : "公告PDF", itemFiscalYear(announcement), isAdditionWork(announcement));
+        };
         uploadTask.phase = "PDFアップロード・チェックイン確認中：" + (link.FileName || fileNameFromUrl(link.URL));
         tasks.push(uploadTask);
       }
@@ -2291,3 +2299,4 @@
 
   global.onload = start;
 }(this));
+

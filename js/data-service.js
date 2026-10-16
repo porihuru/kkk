@@ -450,7 +450,7 @@
     });
   };
 
-  DataService.uploadPdf = function (file, fileName, success, error, purpose, fiscalYear) {
+  DataService.uploadPdf = function (file, fileName, success, error, purpose, fiscalYear, uniqueName) {
     var folder = pdfFolder(fiscalYear || DataService.getFiscalYear());
     var label = purpose || "PDF";
     var valid = !!file && /\.pdf$/i.test(String(file.name || "")) && !(typeof file.size === "number" && file.size === 0);
@@ -472,7 +472,9 @@
       return;
     }
     if (global.Diagnostics) { global.Diagnostics.log("PDF-UPLOAD", label + "のアップロードを開始しました。", "File=" + fileName + " / Size=" + (typeof file.size === "number" ? file.size + " bytes" : "不明") + " / Folder=" + folder); }
-    SP.uploadFile(folder, fileName, file, function (result) {
+    var upload = uniqueName ? SP.uploadNewFile : SP.uploadFile;
+    upload(folder, fileName, file, function (result) {
+      fileName = result && result.savedFileName || fileName;
       if (global.Diagnostics) { global.Diagnostics.log("PDF-UPLOAD", label + "のアップロードに成功しました。", "File=" + fileName + " / Folder=" + folder); }
       if (success) { success(result); }
     }, function (request) {
@@ -510,3 +512,4 @@
 
   global.DataService = DataService;
 }(this));
+

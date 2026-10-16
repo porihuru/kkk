@@ -39,7 +39,7 @@
     return String(value).replace(/'/g, "''");
   }
 
-  function request(method, url, headers, body, success, error) {
+  function request(method, url, headers, body, success, error, allowNotFound) {
     var xhr = new XMLHttpRequest();
     var key;
     xhr.open(method, url, true);
@@ -57,7 +57,7 @@
       if (xhr.status >= 200 && xhr.status < 300) {
         if (success) { success(xhr); }
       } else {
-        if (global.Diagnostics) {
+        if (global.Diagnostics && !(allowNotFound && xhr.status === 404)) {
           global.Diagnostics.httpError("SHAREPOINT", method, url, xhr);
         }
         if (error) {
@@ -341,7 +341,33 @@
     }, error);
   };
 
-  SP.uploadFile = function (folderPath, fileName, file, success, error) {
+  // Additional notices must never overwrite a PDF already in the library.
+  SP.uploadNewFile = function (folderPath, fileName, file, success, error) {
+    var base = String(fileName || ""), number = 1;
+    function attempt() {
+      var name = number === 1 ? base : base.replace(/\.pdf$/i, "_" + number + ".pdf");
+      var url = SP.api + "/web/GetFolderByServerRelativeUrl('" + escapeTitle(folderPath) + "')/Files/getbyurl('" + escapeTitle(name) + "')?$select=Name";
+      function next() {
+        number += 1;
+        if (number > 100) { if (error) { error({status:409, statusText:"同名PDFが多いため保存できません。品名を変更してください。"}); } return; }
+        attempt();
+      }
+      request("GET", url, {"Accept":"application/json;odata=verbose", "Cache-Control":"no-cache"}, null, next, function (response) {
+        if (response.status !== 404) { if (error) { error(response); } return; }
+        SP.uploadFile(folderPath, name, file, function (result) {
+          result.savedFileName = name;
+          if (success) { success(result); }
+        }, function (failure) {
+          // Another user may have created the name after the existence check.
+          if (!failure.uploaded && (failure.status === 409 || failure.status === 423 || /-2130575257/.test(failure.responseText || ""))) { next(); return; }
+          if (error) { error(failure); }
+        }, false);
+      }, true);
+    }
+    attempt();
+  };
+
+  SP.uploadFile = function (folderPath, fileName, file, success, error, overwrite) {
     var rawFolder = String(folderPath || "").replace(/^\s+|\s+$/g, "");
     var rawName = String(fileName || (file && file.name) || "").replace(/^\s+|\s+$/g, "");
     if (!rawFolder) {
@@ -377,7 +403,7 @@
             ready(value, xhr);
           }, function (xhr) { failed("チェックアウト状態の確認", xhr); });
         }
-        request("POST", SP.api + "/web/GetFolderByServerRelativeUrl('" + folder + "')/Files/add(url='" + name + "',overwrite=true)", { "Accept": "application/json;odata=verbose", "X-RequestDigest": digest, "Content-Type": "application/octet-stream" }, reader.result, function (uploaded) {
+        request("POST", SP.api + "/web/GetFolderByServerRelativeUrl('" + folder + "')/Files/add(url='" + name + "',overwrite=" + (overwrite === false ? "false" : "true") + ")", { "Accept": "application/json;odata=verbose", "X-RequestDigest": digest, "Content-Type": "application/octet-stream" }, reader.result, function (uploaded) {
           state(function (checkout) {
             if (checkout === 2) { if (success) { success(uploaded); } return; }
             request("GET", fileApi + "/ListItemAllFields/ParentList?$select=EnableMinorVersions", {"Accept":"application/json;odata=verbose"}, null, function (xhr) {
@@ -418,3 +444,4 @@
 
   global.SP = SP;
 }(this));
+
