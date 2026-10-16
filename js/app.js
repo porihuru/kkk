@@ -895,7 +895,7 @@
       }
       statusText = kind === "published" ? (announcements[i].Status === "公開待ち" && PublicationWorkflow.state(announcements[i]) !== "掲載終了" ? "公開待ち" : PublicationWorkflow.state(announcements[i])) : announcements[i].Status;
       html.push('<td class="status-cell">' + (kind === "published" && statusText === "公開待ち" ? '<strong style="color:#e53935;font-weight:700;">' + escapeHtml(statusText) + '</strong>' : escapeHtml(statusText)));
-      if (kind === "published" && announcements[i].Status === "公開待ち" && PublicationWorkflow.state(announcements[i]) === "掲載終了") { html.push('<br><small>ZIP未作成</small>'); }
+      if (kind === "published" && announcements[i].Status === "公開待ち" && PublicationWorkflow.state(announcements[i]) === "掲載終了") { html.push('<br><small><strong style="color:#e53935;font-weight:700;">ZIP未作成</strong></small>'); }
       if (kind === "published" && PublicationWorkflow.due(announcements[i])) { html.push('<br><strong class="due-notice">掲載終了の確認対象</strong>'); }
       html.push('</td>');
       html.push("<td><span class=\"" + categoryClass + "\">" + escapeHtml(announcements[i].Category) + "</span></td>");
@@ -1750,6 +1750,7 @@
   }
 
   function setAdminVisibility(active) {
+    byId("fixed-menu").style.backgroundColor = active ? "#1565c0" : "";
     var adminOnly = document.getElementsByClassName("admin-only");
     var controls = document.getElementsByClassName("admin-only-control");
     var statusOptions = byId("status-input").options;
