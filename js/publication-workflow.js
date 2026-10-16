@@ -43,26 +43,20 @@
       if (W.state(target) === "掲載終了") { target.Category = ""; }
       if (W.state(target) === "結果掲載中") { target.Category = "結果"; target.Status = "結果反映済"; }
       if (W.state(target) === "公告掲載中") { continue; }
-      if (W.state(target) === "結果掲載中") {
-        var resultCount = 0;
-        for (j = 0; j < result.links.length; j += 1) {
-          if (String(result.links[j].KokokuID) !== String(target.ID)) { continue; }
-          if (!result.links[j].URL) { throw new Error("公開PDFのリンク先が未設定です：" + target.ID); }
+      var linkCount = 0;
+      for (j = 0; j < result.links.length; j += 1) {
+        if (String(result.links[j].KokokuID) !== String(target.ID)) { continue; }
+        // Preserve every original and additional item, including duplicate PDF URLs.
+        if (W.state(target) === "掲載終了") {
+          result.links[j].URL = endedUrl;
+          result.links[j].Type = "掲載終了";
+        } else {
           result.links[j].Type = "結果";
-          resultCount += 1;
         }
-        if (!resultCount) { throw new Error("元の公告PDFリンクがありません：" + target.ID); }
-        continue;
+        if (!result.links[j].URL) { throw new Error("公開PDFのリンク先が未設定です：" + target.ID); }
+        linkCount += 1;
       }
-      var original = null;
-      for (j = 0; j < result.links.length; j += 1) { if (String(result.links[j].KokokuID) === String(target.ID)) { original = result.links[j]; break; } }
-      if (!original) { throw new Error("元の公告PDFリンクがありません：" + target.ID); }
-      var replacement = W.copy(original);
-      replacement.URL = W.state(target) === "掲載終了" ? endedUrl : replacement.URL;
-      if (!replacement.URL) { throw new Error("公開PDFのリンク先が未設定です：" + target.ID); }
-      replacement.Type = W.state(target) === "掲載終了" ? "掲載終了" : "結果";
-      result.links = result.links.filter(function (link) { return String(link.KokokuID) !== String(target.ID); });
-      result.links.push(replacement);
+      if (!linkCount) { throw new Error("元の公告PDFリンクがありません：" + target.ID); }
     }
     return result;
   };
