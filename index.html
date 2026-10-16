@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>入札公告管理</title>
   <script src="js/theme.js?v=20261011-1"></script>
-  <link rel="stylesheet" href="css/style.css?v=20261011-2">
+  <link rel="stylesheet" href="css/style.css?v=20261016-1">
 </head>
 <body>
   <button id="theme-toggle" class="theme-toggle" type="button" aria-label="ダークモード" aria-pressed="false" title="ダークモードに切り替え">
@@ -99,7 +99,7 @@
       </div>
       <form id="announcement-form">
         <input id="announcement-id" type="hidden" value="">
-        <div class="form-row">
+        <div class="form-row announcement-details-row">
           <label for="category-input">区分</label>
           <select id="category-input"><option value="NEW">NEW</option><option value=""></option><option value="結果">結果</option></select>
           <label for="garrison-input">駐屯地</label>
@@ -134,14 +134,12 @@
           <label for="date-input">入札日</label>
           <span class="date-input-group">
             <input id="date-input" type="text" readonly placeholder="R8.8.10" required>
-            <button id="date-picker-button" type="button" class="date-picker-button" aria-label="カレンダーから入札日を選択">📅</button>
+            <button id="date-picker-button" type="button" class="date-picker-button" aria-label="カレンダーから入札日を選択">カレンダー</button>
             <input id="date-picker-input" class="date-picker-input" type="date" tabindex="-1" aria-hidden="true">
           </span>
           <label for="status-input">状態</label>
           <select id="status-input"><option value="公告登録">公告登録</option><option value="内容修正">内容修正</option><option value="入札終了登録">入札終了登録</option><option value="結果登録">結果登録</option><option value="公告反映済" data-admin-only-status="true">公告反映済</option><option value="結果反映済" data-admin-only-status="true">結果反映済</option></select>
-        </div>
-        <div class="form-row">
-          <label><input id="hide-bid-date" type="checkbox"> 公開ページでは入札日を表示しない</label>
+          <label class="bid-date-visibility"><input id="hide-bid-date" type="checkbox">公開ページでは入札日を表示しない</label>
           <label for="remarks-input">備考</label>
           <input id="remarks-input" class="wide-input" type="text">
         </div>

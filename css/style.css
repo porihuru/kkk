@@ -809,3 +809,65 @@ a {
   cursor: pointer;
   font: inherit;
 }
+
+/* Keep announcement metadata on one line; narrow windows can scroll the row. */
+#announcement-form .announcement-details-row {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+#announcement-form .announcement-details-row > label {
+  flex: 0 0 auto;
+  width: auto;
+  white-space: nowrap;
+  margin: 0 6px 0 0;
+}
+#announcement-form .announcement-details-row > select,
+#announcement-form .announcement-details-row > input {
+  flex: 0 0 auto;
+  width: auto;
+  margin: 0 12px 0 0;
+  padding: 6px;
+  box-sizing: border-box;
+}
+#announcement-form .announcement-details-row #category-input { width: 76px; }
+#announcement-form .announcement-details-row #garrison-input { width: 142px; }
+#announcement-form .announcement-details-row #status-input { width: 126px; }
+#announcement-form .announcement-details-row #remarks-input {
+  flex: 1 0 140px;
+  min-width: 140px;
+  margin-right: 0;
+}
+#announcement-form .announcement-details-row .date-input-group {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  max-width: none;
+  margin-right: 12px;
+}
+#announcement-form .announcement-details-row #date-input {
+  width: 112px;
+  padding: 6px;
+  margin: 0 4px 0 0;
+  box-sizing: border-box;
+}
+#announcement-form .announcement-details-row #date-picker-button {
+  flex: 0 0 100px;
+  width: 100px;
+  min-width: 100px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+#announcement-form .announcement-details-row .bid-date-visibility {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 12px;
+}
+#announcement-form .announcement-details-row #hide-bid-date {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin: 0 4px 0 0;
+}
