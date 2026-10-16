@@ -988,7 +988,7 @@
       if (kind === "published" && adminActive && !announcements[i].PublicState) {
         html.push(" <button type=\"button\" class=\"button button-small move-button return-button\" data-list=\"published\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">予定へ差し戻し</button>");
       }
-      if (kind === "published" && adminActive && PublicationWorkflow.state(announcements[i]) !== "掲載終了") {
+      if (kind === "published" && adminActive && PublicationWorkflow.state(announcements[i]) === "公告掲載中") {
         html.push(" <button type=\"button\" class=\"button button-small button-secondary end-publication-button\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">掲載終了</button>");
       }
       if (kind === "published" && adminActive && PublicationWorkflow.state(announcements[i]) === "公告掲載中") {
@@ -1569,7 +1569,7 @@
     var item = announcementById(this.getAttribute("data-id"), allAnnouncements);
     var patch = { PublicState: "掲載終了", Category: "", Status: "公開待ち", OperationDate: operationDateText() };
     var key;
-    if (!adminActive || !item || PublicationWorkflow.state(item) === "掲載終了") { return; }
+    if (!adminActive || !item || PublicationWorkflow.state(item) !== "公告掲載中") { return; }
     if (!requireActiveFiscalYear(itemFiscalYear(item))) { return; }
     function ended() {
       for (key in patch) { if (patch.hasOwnProperty(key)) { item[key] = patch[key]; } }
