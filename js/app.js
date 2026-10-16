@@ -676,7 +676,7 @@
   function canEditResult(task) {
     var source = resultOriginalAuthor(task);
     var user = DataService.getCurrentUser();
-    return !!(source && user && source.AuthorId && String(source.AuthorId) === String(user.id));
+    return !!(source && user && (adminActive || (source.AuthorId && String(source.AuthorId) === String(user.id))));
   }
 
   function canManageAnnouncement(item, kind, active) {
@@ -1132,7 +1132,7 @@
     var rowIndex;
     if (!task || !isResultWork(task) || !DataService.getCurrentUser()) { return; }
     if (!canEditResult(task)) {
-      byId("form-message").textContent = "この結果作業を修正できるのは元の公告の投稿者本人だけです。";
+      byId("form-message").textContent = "この結果作業を修正できるのは元の公告の投稿者本人または管理者です。";
       return;
     }
     source = announcementById(task.SourceAnnouncementID, allAnnouncements);
