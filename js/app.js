@@ -901,6 +901,9 @@
       if (canOperate && !isResultWork(announcements[i]) && !isAdditionWork(announcements[i])) {
         html.push("<button type=\"button\" class=\"button button-small edit-button\" data-list=\"" + kind + "\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">修正</button> <button type=\"button\" class=\"button button-small button-danger delete-button\" data-list=\"" + kind + "\" data-id=\"" + escapeHtml(announcements[i].ID) + "\">削除</button>");
       }
+      if (kind === "planned" && adminActive && !announcements[i]._virtualResult && (isResultWork(announcements[i]) || isAdditionWork(announcements[i]))) {
+        html.push('<button type="button" class="button button-small button-danger delete-button" data-list="planned" data-id="' + escapeHtml(announcements[i].ID) + '">削除</button>');
+      }
       if (kind === "planned" && isAdditionWork(announcements[i])) {
         html.push('<button type="button" class="button button-small addition-work-button" data-id="' + escapeHtml(announcements[i].ID) + '">公告追加作業</button>');
       }
@@ -1462,8 +1465,9 @@
     var id = this.getAttribute("data-id"), kind = this.getAttribute("data-list") || "planned", state = listState(kind);
     var item = announcementById(id, state.announcements), links = linksFor(id, state.links);
     if (!item || !requireActiveFiscalYear(itemFiscalYear(item))) { return; }
-    if (isAdditionWork(item) && !adminActive) { return; }
-    if (!canManageAnnouncement(item, kind, adminActive) || !window.confirm("この公告を削除しますか？")) { return; }
+    if (item._virtualResult) { return; }
+    if ((isAdditionWork(item) || isResultWork(item)) && !adminActive) { return; }
+    if ((!adminActive && !canManageAnnouncement(item, kind, false)) || !window.confirm("この公告を削除しますか？")) { return; }
     function deleted() {
       deletedAnnouncements.unshift({ deletedAt: new Date().toLocaleString(), announcement: copyObject(item), links: links.map(copyObject) });
       state.announcements.splice(state.announcements.indexOf(item), 1);
