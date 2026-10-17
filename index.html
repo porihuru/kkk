@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>入札公告管理</title>
   <script src="js/theme.js?v=20261011-1"></script>
-  <link rel="stylesheet" href="css/style.css?v=20261016-16">
+  <link rel="stylesheet" href="css/style.css?v=20261017-2">
 </head>
 <body>
   <button id="theme-toggle" class="theme-toggle" type="button" aria-label="ダークモード" aria-pressed="false" title="ダークモードに切り替え">
@@ -57,6 +57,7 @@
           <button id="admin-login" type="submit" class="button">管理者機能を有効化</button>
         </form>
         <button id="admin-logout" type="button" class="button button-secondary hidden">管理者機能を無効化</button>
+        <button id="reload-page" type="button" class="button button-secondary" title="現在のモードを維持して画面を再読み込みします">画面をリロード</button>
         <p id="admin-message" class="form-message hidden" hidden></p>
       </section>
     </div>
@@ -93,8 +94,9 @@
       </div>
     </section>
 
-    <section class="editor" aria-label="公告編集">
-      <div class="section-heading">
+    <section class="editor workspace-section workspace-editor" aria-labelledby="editor-title">
+      <div class="section-heading workspace-heading">
+        <span class="workspace-label">作成・編集</span>
         <h2 id="editor-title">公告を新規登録</h2>
       </div>
       <form id="announcement-form">
@@ -211,9 +213,14 @@
       <button id="published-check" type="button" class="button">公開HTMLを照合</button>
       <p id="published-check-message" aria-live="polite"></p>
     </section>
+    <section class="workspace-section workspace-planned" aria-labelledby="planned-list-title">
+      <header class="workspace-heading">
+        <span class="workspace-label">登録前の作業</span>
+        <h2 id="planned-list-title">公告予定リスト</h2>
+        <p>新規公告や修正・結果など、本リストへの登録前の作業を確認します。</p>
+      </header>
     <section class="toolbar" aria-label="公告予定リストの検索">
       <div class="toolbar-heading">
-        <h2>公告予定リスト</h2>
         <span id="planned-record-count" class="record-count">0件</span>
       </div>
       <label for="search-input">検索</label>
@@ -247,9 +254,16 @@
       </table>
     </section>
 
-    <section class="toolbar" aria-label="公告リスト">
+    </section>
+
+    <section class="workspace-section workspace-published" aria-labelledby="published-list-title">
+      <header class="workspace-heading">
+        <span class="workspace-label">本リスト</span>
+        <h2 id="published-list-title">公告リスト</h2>
+        <p>本リストに登録された公告と掲載状況を確認します。</p>
+      </header>
+    <section class="toolbar" aria-label="公告リストの操作">
       <div class="toolbar-heading">
-        <h2>公告リスト</h2>
         <span id="record-count" class="record-count">0件</span>
         <button id="preview-page" type="button" class="button preview-inline-button">公開ページプレビュー</button>
       </div>
@@ -288,6 +302,8 @@
       </table>
     </section>
 
+    </section>
+
     <section id="deleted-list-panel" class="deleted-list hidden" aria-label="削除一覧">
       <div class="toolbar-heading">
         <h2>削除一覧</h2>
@@ -324,7 +340,7 @@
   <script type="text/javascript" src="js/operation-history.js?v=20261009-3"></script>
   <script type="text/javascript" src="js/zip-preview.js?v=20261014-3"></script>
   <script type="text/javascript" src="js/calendar-picker.js?v=20261014-2"></script>
-  <script type="text/javascript" src="js/app.js?v=20261016-17"></script>
+  <script type="text/javascript" src="js/app.js?v=20261017-2"></script>
 </body>
 </html>
 

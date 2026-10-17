@@ -90,7 +90,7 @@ body {
   border-bottom: 5px solid #d8a646;
 }
 
-.operation-bar { width: 90%; margin: 0 auto; padding: 8px 0; display: flex; align-items: center; gap: 12px; }
+.operation-bar { width: 97%; margin: 0 auto; padding: 8px 0; display: flex; align-items: center; gap: 12px; }
 #operation-latest { flex: 1; overflow-wrap: break-word; }
 .operation-history { position: fixed; top: 10%; left: 5%; width: 90%; max-height: 80vh; overflow: auto; z-index: 11000; padding: 20px; background: white; color: #17212b; border: 3px solid #173f4b; box-shadow: 0 4px 24px #555; }
 .operation-history li { padding: 8px; border-bottom: 1px solid #ddd; white-space: pre-wrap; overflow-wrap: break-word; }
@@ -99,8 +99,9 @@ body {
 
 .header-inner,
 .page-body {
-  width: 90%;
-  max-width: 1440px;
+  width: 97%;
+  /* Keep 30% of the former side margins, including above the old 1440px cap. */
+  max-width: calc(70% + 432px);
   margin: 0 auto;
 }
 
@@ -754,7 +755,7 @@ a {
 @media screen and (max-width: 640px) {
   .header-inner,
   .page-body {
-    width: 90%;
+    width: 97%;
   }
 
   .header-inner {
@@ -905,3 +906,63 @@ a {
   color: #555f6b;
 }
 [data-theme="dark"] #announcement-form .locked-fields-hint { color: #c1c8cf; }
+
+/* Each work area contains its heading, controls and contents in one frame. */
+.workspace-section {
+  --section-accent: #2863a0;
+  --section-tint: #edf4fc;
+  margin: 32px 0;
+  border: 2px solid #a8bac9;
+  border-top: 6px solid var(--section-accent);
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(23, 33, 43, 0.08);
+}
+.workspace-planned { --section-accent: #94600e; --section-tint: #fff5e2; }
+.workspace-published { --section-accent: #146c5e; --section-tint: #eaf6f1; }
+.editor.workspace-section { padding: 0 22px 20px; }
+.workspace-heading {
+  padding: 20px 22px;
+  border-bottom: 1px solid #b8c7d2;
+  border-radius: 7px 7px 0 0;
+  background: var(--section-tint);
+}
+.workspace-editor > .workspace-heading { margin: 0 -22px 22px; }
+.workspace-heading h2 {
+  display: block;
+  margin: 6px 0 0;
+  color: #17212b;
+  font-size: 24px;
+  line-height: 1.5;
+}
+.workspace-label {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 4px;
+  color: #ffffff;
+  background: var(--section-accent);
+  font-size: 12px;
+  font-weight: bold;
+}
+.workspace-heading p { margin: 6px 0 0; color: #465c69; font-size: 13px; line-height: 1.7; }
+.workspace-section > .toolbar { border-left: 0; padding: 16px 22px; }
+.workspace-section .toolbar-heading { width: auto; margin-right: 16px; }
+.workspace-section .record-count { margin-left: 0; font-size: 15px; font-weight: bold; }
+.workspace-section > .table-wrap { margin: 0; border: 0; border-top: 1px solid #b8c7d2; border-radius: 0 0 8px 8px; }
+.page-body > .toolbar { margin-bottom: 32px; }
+
+@media screen {
+  [data-theme="dark"] .workspace-section { background: #1c2932; border-color: #59707e; border-top-color: var(--section-accent); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25); }
+  [data-theme="dark"] .workspace-editor { --section-accent: #467fba; --section-tint: #23394f; }
+  [data-theme="dark"] .workspace-planned { --section-accent: #94600e; --section-tint: #3b3221; border-top-color: #d7a34e; }
+  [data-theme="dark"] .workspace-published { --section-accent: #217668; --section-tint: #203c36; border-top-color: #61b5a3; }
+  [data-theme="dark"] .workspace-heading { border-bottom-color: #59707e; }
+  [data-theme="dark"] .workspace-heading h2 { color: #f0f5f8; }
+  [data-theme="dark"] .workspace-heading p { color: #c3d0d9; }
+}
+@media screen and (max-width: 640px) {
+  .workspace-section { margin: 24px 0; }
+  .workspace-heading { padding: 16px; }
+  .workspace-heading h2 { font-size: 21px; }
+  .workspace-section > .toolbar { padding: 16px; }
+}

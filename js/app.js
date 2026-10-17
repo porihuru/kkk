@@ -126,6 +126,7 @@
   }
 
   var adminActive = false;
+  var adminStorageKey = "kkk-admin-mode:" + (global.location ? global.location.pathname : "");
   var ADMIN_PASSWORD = "snk";
   var ALLOWED_CATEGORIES = ["NEW", "", "結果"];
   var ALLOWED_GARRISONS = ["札幌", "真駒内", "丘珠", "北千歳", "南恵庭", "北恵庭", "東千歳", "静内", "幌別", "函館", "倶知安", "美唄", "岩見沢", "滝川", "上富良野", "留萌", "旭川", "名寄", "稚内", "遠軽", "美幌", "帯広", "鹿追", "釧路", "別海"];
@@ -1795,7 +1796,7 @@
       cached.mode = data.mode; cached.databaseName = data.databaseName;
       data = cached; selectedPdfFiles = cached.pdfFiles || {}; unsaved = true;
     }
-    deactivateAdmin();
+    deactivateAdmin(true);
     preserveAnnouncementOrder = true;
     preservePlannedOrder = true;
     plannedAnnouncements = normalizeAnnouncements(data.announcements || []);
@@ -1814,6 +1815,7 @@
     byId("database-apply").disabled = false;
     byId("data-mode-apply").disabled = false;
     byId("data-status").innerHTML = (data.databaseName || "公告DB") + " / " + activeFiscalYear + "年度 / " + (data.mode === "SHAREPOINT" ? "SharePointリスト" : "CSVモード") + " / 読み込み完了";
+    restoreAdminMode();
     filterAnnouncements();
     renderSettings();
   }
@@ -1821,12 +1823,13 @@
   function loadData() {
     if (workflowBusy || pendingSave) { return; }
     selectedPdfFiles = {}; unsaved = false; formDirty = false; pendingSave = null;
-    deactivateAdmin();
+    deactivateAdmin(true);
     byId("database-apply").disabled = true;
     byId("data-mode-apply").disabled = true;
     DataService.load(applyLoadedData, function () {
       byId("database-apply").disabled = false;
       byId("data-mode-apply").disabled = false;
+      saveAdminMode(false);
       showError();
     });
   }
@@ -1918,6 +1921,37 @@
       byId("admin-message").innerHTML = "パスワードが正しくありません。";
       return;
     }
+    enableAdminMode();
+    saveAdminMode(true);
+  }
+
+  function saveAdminMode(active) {
+    try {
+      if (!active) {
+        global.sessionStorage.removeItem(adminStorageKey);
+      } else {
+        global.sessionStorage.setItem(adminStorageKey, JSON.stringify({
+          userId: String(DataService.getCurrentUser().id),
+          mode: DataService.isSharePoint() ? "SHAREPOINT" : "CSV"
+        }));
+      }
+    } catch (ignore) {}
+  }
+
+  function restoreAdminMode() {
+    var user = DataService.getCurrentUser();
+    try {
+      var saved = JSON.parse(global.sessionStorage.getItem(adminStorageKey));
+      if (user && saved && saved.userId === String(user.id) &&
+          saved.mode === (DataService.isSharePoint() ? "SHAREPOINT" : "CSV")) {
+        enableAdminMode();
+        return;
+      }
+    } catch (ignore) {}
+    saveAdminMode(false);
+  }
+
+  function enableAdminMode() {
     adminActive = true;
     byId("admin-password").value = "";
     byId("admin-message").innerHTML = "管理者機能を有効化しました。";
@@ -1927,8 +1961,9 @@
     filterAnnouncements();
   }
 
-  function deactivateAdmin() {
+  function deactivateAdmin(preserveSession) {
     adminActive = false;
+    if (preserveSession !== true) { saveAdminMode(false); }
     clearForm();
     byId("admin-message").innerHTML = "管理者機能を無効化しました。";
     byId("admin-login").className = "button";
@@ -1936,6 +1971,14 @@
     setHidden(byId("deleted-list-panel"), true);
     setAdminVisibility(false);
     filterAnnouncements();
+  }
+
+  function reloadPage() {
+    if (workflowBusy || pendingSave) {
+      byId("form-message").textContent = "処理中または再保存待ちのため、リロードできません。処理の完了または再保存後に実行してください。";
+      return;
+    }
+    global.location.reload();
   }
 
   function toggleDeletedList() {
@@ -2316,6 +2359,10 @@
     });
   }
 
+  function markEdited(event) {
+    if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName) && event.target.id !== "admin-password" && event.target.id !== "search-input" && event.target.id !== "database-input" && event.target.id !== "data-mode-input" && event.target.id !== "fiscal-year-input") { unsaved = true; formDirty = true; }
+  }
+
   function start() {
     var retry = document.createElement("button");
     retry.id = "retry-save"; retry.type = "button"; retry.textContent = "再保存"; retry.disabled = true;
@@ -2329,9 +2376,6 @@
         return message;
       }
     };
-    function markEdited(event) {
-      if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName) && event.target.id !== "search-input" && event.target.id !== "database-input" && event.target.id !== "data-mode-input" && event.target.id !== "fiscal-year-input") { unsaved = true; formDirty = true; }
-    }
     document.addEventListener("change", markEdited);
     document.addEventListener("input", markEdited);
     setAdminVisibility(false);
@@ -2363,6 +2407,7 @@
     byId("sort-date").onclick = toggleDateSort;
     byId("sort-planned-date").onclick = toggleDateSort;
     byId("admin-logout").onclick = deactivateAdmin;
+    byId("reload-page").onclick = reloadPage;
     byId("database-apply").onclick = switchDatabase;
     byId("data-mode-apply").onclick = switchDataMode;
     byId("fiscal-year-input").onchange = switchFiscalYear;
