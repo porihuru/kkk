@@ -28,6 +28,10 @@
 		document.addEventListener("DOMContentLoaded", function () {
 			// キーワード検索イベント
 			document.getElementById("searchInput").addEventListener("keyup", filterTable);
+			// 検索欄に戻ったら、次の入力で検索語を置き換えられるようにする
+			document.getElementById("searchInput").addEventListener("focus", function () {
+				this.select();
+			});
 			// リスト選択イベント
 			document.getElementById("searchInput2").addEventListener("change", filterTable);
 		});</script>
