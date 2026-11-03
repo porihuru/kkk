@@ -8,7 +8,8 @@
   var allSettings = [];
   var activeFiscalYear = calendarFiscalYear();
   var deletedAnnouncements = [];
-  var dateSortDescending = false;
+  var displayDateSort = { planned: "", published: "" };
+  var pdfWindow = null;
   var preserveAnnouncementOrder = false;
   var preservePlannedOrder = false;
   var editingList = "planned";
@@ -413,7 +414,7 @@
   function pdfItemsHtml(links, kind, label) {
     return links.map(function (link) {
       return '<li style="white-space:normal;overflow:visible;">' + (label ? '<small>' + escapeHtml(label) + '</small> ' : '') +
-        '<a href="' + escapeHtml(DataService.getPublicLinkUrl(link.URL)) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(link.Text) + '</a> ' +
+        '<a class="pdf-preview-button" data-list="' + kind + '" data-link-id="' + escapeHtml(link.ID) + '" data-preview-url="' + escapeHtml(link.URL) + '" data-preview-type="' + escapeHtml(link.Type) + '" href="' + escapeHtml(DataService.getPublicLinkUrl(link.URL)) + '" target="kkkPdfViewer" rel="noopener noreferrer">' + escapeHtml(link.Text) + '</a> ' +
         '<button type="button" class="button button-small button-secondary pdf-preview-button" data-list="' + kind + '" data-link-id="' + escapeHtml(link.ID) + '" data-preview-url="' + escapeHtml(link.URL) + '" data-preview-type="' + escapeHtml(link.Type) + '" title="' + escapeHtml(pdfPreviewTitle(kind, link)) + '">PDF確認</button></li>';
     }).join("");
   }
@@ -871,7 +872,24 @@
       "PDFの保存先を確認できません。";
   }
 
-  function previewPdf() {
+  function openPdfWindow(url) {
+    try {
+      if (pdfWindow && !pdfWindow.closed) {
+        pdfWindow.location.href = url;
+        pdfWindow.focus();
+        return pdfWindow;
+      }
+    } catch (ignore) { pdfWindow = null; }
+    pdfWindow = global.open(url, "kkkPdfViewer", "width=1100,height=850,resizable=yes,scrollbars=yes");
+    if (pdfWindow) {
+      try { pdfWindow.opener = null; pdfWindow.focus(); } catch (ignoreFocus) {}
+    }
+    return pdfWindow;
+  }
+
+  function previewPdf(event) {
+    event = event || global.event;
+    if (event) { if (event.preventDefault) { event.preventDefault(); } event.returnValue = false; }
     var kind = this.getAttribute("data-list") || "planned";
     var state = listState(kind);
     var link = linkById(this.getAttribute("data-link-id"), state.links);
@@ -895,7 +913,7 @@
         return;
       }
       url = global.URL.createObjectURL(file);
-      opened = global.open(url, "_blank");
+      opened = openPdfWindow(url);
       if (!opened) {
         global.URL.revokeObjectURL(url);
         byId("form-message").textContent = "PDFを開けません。ポップアップを許可してください。";
@@ -908,7 +926,7 @@
         byId("form-message").textContent = "PDFの保存先を確認できません。PDFを選択するか、設定を確認してください。";
         return;
       }
-      opened = global.open(url, "_blank");
+      opened = openPdfWindow(url);
       if (!opened) {
         byId("form-message").textContent = "PDFを開けません。ポップアップを許可してください。";
         return;
@@ -918,13 +936,23 @@
     byId("form-message").textContent = "PDFを別画面で開きました。";
   }
 
-  function compareAnnouncements(left, right) {
-    var leftDate = String(left.BidDate || "");
-    var rightDate = String(right.BidDate || "");
-    if (leftDate === rightDate) {
-      return (parseInt(left.Sort, 10) || 0) - (parseInt(right.Sort, 10) || 0);
-    }
-    return dateSortDescending ? (leftDate < rightDate ? 1 : -1) : (leftDate > rightDate ? 1 : -1);
+  function bidDateSortValue(value) {
+    var match = String(value || "").trim().match(/^(R|令和)?\s*(\d+)[.\/年-](\d+)[.\/月-](\d+)日?$/i);
+    if (!match) { return null; }
+    var year = Number(match[2]) + (match[1] ? 2018 : 0), month = Number(match[3]), day = Number(match[4]);
+    var date = new Date(year, month - 1, day);
+    return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? year * 10000 + month * 100 + day : null;
+  }
+
+  function displayAnnouncements(kind, announcements) {
+    var direction = displayDateSort[kind];
+    if (!direction) { return announcements.slice(); }
+    return announcements.map(function (item, index) { return {item:item, index:index, date:bidDateSortValue(item.BidDate)}; }).sort(function (a, b) {
+      if (a.date === b.date) { return a.index - b.index; }
+      if (a.date === null) { return 1; }
+      if (b.date === null) { return -1; }
+      return direction === "asc" ? a.date - b.date : b.date - a.date;
+    }).map(function (entry) { return entry.item; });
   }
 
   function renderList(kind, announcements) {
@@ -941,10 +969,7 @@
     var downDisabled;
     var statusText;
 
-    if (!((kind === "published" && preserveAnnouncementOrder) || (kind === "planned" && preservePlannedOrder))) {
-      state.announcements.sort(compareAnnouncements);
-      announcements.sort(compareAnnouncements);
-    }
+    announcements = displayAnnouncements(kind, announcements);
     var displayedIds = announcements.map(function (item) { return String(item.ID); });
     var linkCount = state.links.filter(function (item) { return displayedIds.indexOf(String(item.KokokuID)) >= 0; }).length;
     var referenceCount = kind === "planned" ? announcements.reduce(function (count, item) {
@@ -963,8 +988,8 @@
         try { links = PublicationWorkflow.candidate([announcements[i]], links, DataService.getPublicationConfig(itemFiscalYear(announcements[i])).endedUrl).links; } catch (error) { links = []; }
       }
       categoryClass = announcements[i].Category === "NEW" ? "category" : "category category-change";
-      upDisabled = i === 0 ? " disabled" : "";
-      downDisabled = i === announcements.length - 1 ? " disabled" : "";
+      upDisabled = i === 0 || displayDateSort[kind] ? " disabled" : "";
+      downDisabled = i === announcements.length - 1 || displayDateSort[kind] ? " disabled" : "";
       html.push("<tr>");
       html.push("<td class=\"id-cell\">");
       if (adminActive && !announcements[i]._virtualResult) {
@@ -1704,6 +1729,7 @@
   function moveAnnouncementOrder() {
     if (workflowBusy || pendingSave) { return; }
     var kind = this.getAttribute("data-list") || "planned";
+    if (displayDateSort[kind]) { byId("form-message").textContent = "並び順を編集する場合は、元の表示順に戻してください。"; return; }
     var state = listState(kind);
     var id = this.getAttribute("data-id");
     var index = -1;
@@ -2160,12 +2186,19 @@
   }
 
   function toggleDateSort() {
-    if ((this && this.id === "sort-date" && preserveAnnouncementOrder) || (this && this.id === "sort-planned-date" && preservePlannedOrder)) {
-      return;
-    }
-    dateSortDescending = !dateSortDescending;
-    byId("sort-date").innerHTML = dateSortDescending ? "入札日 ▼" : "入札日 ▲";
-    byId("sort-planned-date").innerHTML = dateSortDescending ? "入札日 ▼" : "入札日 ▲";
+    var kind = this.id === "sort-planned-date" ? "planned" : "published";
+    displayDateSort[kind] = displayDateSort[kind] === "asc" ? "desc" : "asc";
+    this.textContent = displayDateSort[kind] === "asc" ? "入札日 ▲" : "入札日 ▼";
+    this.parentNode.setAttribute("aria-sort", displayDateSort[kind] === "asc" ? "ascending" : "descending");
+    filterAnnouncements();
+  }
+
+  function resetDisplaySort() {
+    var kind = this.id === "reset-planned-sort" ? "planned" : "published";
+    displayDateSort[kind] = "";
+    var button = byId(kind === "planned" ? "sort-planned-date" : "sort-date");
+    button.textContent = "入札日 ▲▼";
+    button.parentNode.setAttribute("aria-sort", "none");
     filterAnnouncements();
   }
 
@@ -2406,6 +2439,8 @@
     byId("setting-add").onclick = addSetting;
     byId("sort-date").onclick = toggleDateSort;
     byId("sort-planned-date").onclick = toggleDateSort;
+    byId("reset-planned-sort").onclick = resetDisplaySort;
+    byId("reset-published-sort").onclick = resetDisplaySort;
     byId("admin-logout").onclick = deactivateAdmin;
     byId("reload-page").onclick = reloadPage;
     byId("database-apply").onclick = switchDatabase;
@@ -2425,6 +2460,7 @@
 
   global.onload = start;
 }(this));
+
 
 
 

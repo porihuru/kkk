@@ -221,6 +221,7 @@
       </header>
     <section class="toolbar" aria-label="公告予定リストの検索">
       <div class="toolbar-heading">
+        <button type="button" id="reset-planned-sort" class="button button-small button-secondary">元の表示順に戻す</button>
         <span id="planned-record-count" class="record-count">0件</span>
       </div>
       <label for="search-input">検索</label>
@@ -244,7 +245,7 @@
             <th scope="col">区分</th>
             <th scope="col">駐屯地</th>
             <th scope="col">品名・PDF</th>
-            <th scope="col" class="date-column"><button id="sort-planned-date" type="button" class="sort-button">入札日 ▲▼</button></th>
+            <th scope="col" class="date-column"><button type="button" title="画面上だけを並べ替えます" id="sort-planned-date" class="sort-button">入札日 ▲▼</button></th>
             <th scope="col">備考</th>
           </tr>
         </thead>
@@ -264,6 +265,7 @@
       </header>
     <section class="toolbar" aria-label="公告リストの操作">
       <div class="toolbar-heading">
+        <button type="button" id="reset-published-sort" class="button button-small button-secondary">元の表示順に戻す</button>
         <span id="record-count" class="record-count">0件</span>
         <button id="preview-page" type="button" class="button preview-inline-button">公開ページプレビュー</button>
       </div>
@@ -292,7 +294,7 @@
             <th scope="col">区分</th>
             <th scope="col">駐屯地</th>
             <th scope="col">品名・PDF</th>
-            <th scope="col" class="date-column"><button id="sort-date" type="button" class="sort-button">入札日 ▲▼</button></th>
+            <th scope="col" class="date-column"><button type="button" title="画面上だけを並べ替えます" id="sort-date" class="sort-button">入札日 ▲▼</button></th>
             <th scope="col">備考</th>
           </tr>
         </thead>
@@ -340,9 +342,10 @@
   <script type="text/javascript" src="js/operation-history.js?v=20261009-3"></script>
   <script type="text/javascript" src="js/zip-preview.js?v=20261014-3"></script>
   <script type="text/javascript" src="js/calendar-picker.js?v=20261014-2"></script>
-  <script type="text/javascript" src="js/app.js?v=20261017-2"></script>
+  <script type="text/javascript" src="js/app.js?v=20261103-1"></script>
 </body>
 </html>
+
 
 
 
