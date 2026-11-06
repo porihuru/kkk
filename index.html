@@ -224,8 +224,12 @@
         <button type="button" id="reset-planned-sort" class="button button-small button-secondary">元の表示順に戻す</button>
         <span id="planned-record-count" class="record-count">0件</span>
       </div>
+      <label for="planned-status-filter">状態</label>
+      <select id="planned-status-filter" data-list-filter="true"><option value="">すべて</option></select>
+      <label for="planned-garrison-filter">駐屯地</label>
+      <select id="planned-garrison-filter" data-list-filter="true"><option value="">すべて</option></select>
       <label for="search-input">検索</label>
-      <input id="search-input" type="text" placeholder="品名、駐屯地、区分で検索">
+      <input id="search-input" data-list-filter="true" type="text" placeholder="品名、駐屯地、区分で検索">
        <button id="export-planned-kokoku" type="button" class="button export-button admin-only-control hidden">予定CSV出力</button>
        <button id="export-planned-links" type="button" class="button export-button admin-only-control hidden">予定リンクCSV出力</button>
     </section>
@@ -269,6 +273,12 @@
         <span id="record-count" class="record-count">0件</span>
         <button id="preview-page" type="button" class="button preview-inline-button">公開ページプレビュー</button>
       </div>
+      <label for="published-status-filter">状態</label>
+      <select id="published-status-filter" data-list-filter="true"><option value="">すべて</option></select>
+      <label for="published-garrison-filter">駐屯地</label>
+      <select id="published-garrison-filter" data-list-filter="true"><option value="">すべて</option></select>
+      <label for="published-search">品名検索</label>
+      <input id="published-search" data-list-filter="true" type="text" placeholder="品名の一部を入力">
        <button id="export-kokoku" type="button" class="button export-button admin-only-control hidden">公告CSV出力</button>
        <button id="export-links" type="button" class="button export-button admin-only-control hidden">公告リンクCSV出力</button>
        <button id="export-settings" type="button" class="button export-button admin-only-control hidden">設定CSV出力</button>
@@ -342,7 +352,7 @@
   <script type="text/javascript" src="js/operation-history.js?v=20261009-3"></script>
   <script type="text/javascript" src="js/zip-preview.js?v=20261014-3"></script>
   <script type="text/javascript" src="js/calendar-picker.js?v=20261014-2"></script>
-  <script type="text/javascript" src="js/app.js?v=20261103-1"></script>
+  <script type="text/javascript" src="js/app.js?v=20261106-1"></script>
 </body>
 </html>
 

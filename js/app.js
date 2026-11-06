@@ -1031,7 +1031,7 @@
       html.push('<td class="operation-date-cell">' + escapeHtml(postingDateText(announcements[i].Modified || announcements[i].OperationDate)) + '</td>');
       html.push('<td class="author-cell">' + escapeHtml(personText(original, "Author")) + '</td>');
       html.push('<td class="operation-date-cell">' + escapeHtml(postingDateText(original.Created)) + '</td>');
-      statusText = kind === "published" ? (announcements[i].Status === "公開待ち" && PublicationWorkflow.state(announcements[i]) !== "掲載終了" ? "公開待ち" : PublicationWorkflow.state(announcements[i])) : announcements[i].Status;
+      statusText = listStatus(kind, announcements[i]);
       html.push('<td class="status-cell">' + (kind === "published" && statusText === "公開待ち" ? '<strong style="color:#e53935;font-weight:700;">' + escapeHtml(statusText) + '</strong>' : escapeHtml(statusText)));
       if (kind === "published" && announcements[i].Status === "公開待ち" && PublicationWorkflow.state(announcements[i]) === "掲載終了") { html.push('<br><small><strong style="color:#e53935;font-weight:700;">ZIP未作成</strong></small>'); }
       if (kind === "published" && PublicationWorkflow.due(announcements[i])) { html.push('<br><strong class="due-notice">掲載終了の確認対象</strong>'); }
@@ -1779,33 +1779,45 @@
     }
   }
 
+  function listStatus(kind, item) {
+    return kind === "published" ? (item.Status === "公開待ち" && PublicationWorkflow.state(item) !== "掲載終了" ? "公開待ち" : PublicationWorkflow.state(item)) : item.Status;
+  }
+
+  function refreshFilter(id, values) {
+    var select = byId(id), selected = select.value;
+    values.sort();
+    var keys = JSON.stringify(values);
+    if (select._filterKeys !== keys) {
+      select.options.length = 1;
+      values.forEach(function (value) { select.add(new Option(value, value)); });
+      select._filterKeys = keys;
+      select.value = values.indexOf(selected) >= 0 ? selected : "";
+    }
+    return select.value;
+  }
+
   function filterAnnouncements() {
     syncVirtualResultWork();
-    var keyword = byId("search-input").value.toLowerCase();
-    function filteredItems(kind) {
-      var state = listState(kind);
-      var filtered = [];
-      var i;
-      var text;
-      var links;
-      var linkIndex;
-      for (i = 0; i < state.announcements.length; i += 1) {
-        text = [state.announcements[i].Category, state.announcements[i].Garrison, state.announcements[i].BidDate, state.announcements[i].Remarks].join(" ").toLowerCase();
-        links = linksFor(state.announcements[i].ID, state.links);
-        if (kind === "planned" && isAdditionWork(state.announcements[i])) {
-          links = links.concat(linksFor(state.announcements[i].SourceAnnouncementID, allLinks));
-        }
-        for (linkIndex = 0; linkIndex < links.length; linkIndex += 1) {
-          text += " " + String(links[linkIndex].Text || "").toLowerCase();
-        }
-        if (itemFiscalYear(state.announcements[i]) === activeFiscalYear && text.indexOf(keyword) >= 0) {
-          filtered.push(state.announcements[i]);
-        }
-      }
-      return filtered;
-    }
-    renderList("planned", filteredItems("planned"));
-    renderList("published", filteredItems("published"));
+    ["planned", "published"].forEach(function (kind) {
+      var state = listState(kind), statuses = [], garrisons = [];
+      var rows = state.announcements.filter(function (item) { return itemFiscalYear(item) === activeFiscalYear; });
+      rows.forEach(function (item) {
+        var status = listStatus(kind, item);
+        if (status && statuses.indexOf(status) < 0) { statuses.push(status); }
+        if (item.Garrison && garrisons.indexOf(item.Garrison) < 0) { garrisons.push(item.Garrison); }
+      });
+      var status = refreshFilter(kind + "-status-filter", statuses);
+      var garrison = refreshFilter(kind + "-garrison-filter", garrisons);
+      var keyword = byId(kind === "planned" ? "search-input" : "published-search").value.trim().toLowerCase();
+      renderList(kind, rows.filter(function (item) {
+        if ((status && listStatus(kind, item) !== status) || (garrison && item.Garrison !== garrison)) { return false; }
+        if (!keyword) { return true; }
+        var links = linksFor(item.ID, state.links);
+        if (kind === "planned" && isAdditionWork(item)) { links = links.concat(linksFor(item.SourceAnnouncementID, allLinks)); }
+        var words = kind === "planned" ? [item.Category, item.Garrison, item.BidDate, item.Remarks] : [];
+        return words.concat(links.map(function (link) { return link.Text; })).join(" ").toLowerCase().indexOf(keyword) >= 0;
+      }));
+    });
   }
 
   function showError() {
@@ -1817,6 +1829,7 @@
   }
 
   function applyLoadedData(data) {
+    ["planned", "published"].forEach(clearListView);
     if (!DataService.isSharePoint() && csvDatabaseSnapshots[data.database]) {
       var cached = csvDatabaseSnapshots[data.database];
       cached.mode = data.mode; cached.databaseName = data.databaseName;
@@ -1899,6 +1912,7 @@
     }
     if (byId("announcement-id").value || resultWorkMode) { clearForm(); }
     activeFiscalYear = year;
+    ["planned", "published"].forEach(clearListView);
     DataService.setFiscalYear(year);
     updateFiscalYearUi();
     filterAnnouncements();
@@ -2195,11 +2209,18 @@
 
   function resetDisplaySort() {
     var kind = this.id === "reset-planned-sort" ? "planned" : "published";
+    clearListView(kind);
+    filterAnnouncements();
+  }
+
+  function clearListView(kind) {
+    byId(kind + "-status-filter").value = "";
+    byId(kind + "-garrison-filter").value = "";
+    byId(kind === "planned" ? "search-input" : "published-search").value = "";
     displayDateSort[kind] = "";
     var button = byId(kind === "planned" ? "sort-planned-date" : "sort-date");
     button.textContent = "入札日 ▲▼";
     button.parentNode.setAttribute("aria-sort", "none");
-    filterAnnouncements();
   }
 
   function replaceImportedData(data, snapshot) {
@@ -2393,7 +2414,7 @@
   }
 
   function markEdited(event) {
-    if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName) && event.target.id !== "admin-password" && event.target.id !== "search-input" && event.target.id !== "database-input" && event.target.id !== "data-mode-input" && event.target.id !== "fiscal-year-input") { unsaved = true; formDirty = true; }
+    if (event.target && /^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName) && event.target.id !== "admin-password" && !event.target.getAttribute("data-list-filter") && event.target.id !== "database-input" && event.target.id !== "data-mode-input" && event.target.id !== "fiscal-year-input") { unsaved = true; formDirty = true; }
   }
 
   function start() {
@@ -2421,7 +2442,11 @@
     HtmlExport.loadTemplate(function () {}, function () {
       byId("form-message").innerHTML = "テンプレートを読み込めないため、HTML出力とプレビューは利用できません。";
     });
-    byId("search-input").onkeyup = filterAnnouncements;
+    ["planned", "published"].forEach(function (kind) {
+      byId(kind + "-status-filter").onchange = filterAnnouncements;
+      byId(kind + "-garrison-filter").onchange = filterAnnouncements;
+      byId(kind === "planned" ? "search-input" : "published-search").oninput = filterAnnouncements;
+    });
     byId("announcement-form").onsubmit = saveAnnouncement;
     byId("cancel-edit").onclick = clearForm;
     byId("export-kokoku").onclick = exportAnnouncements;
