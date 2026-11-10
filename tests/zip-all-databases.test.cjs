@@ -83,7 +83,7 @@ test('ZIP from construction includes all four DBs, isolates identical IDs, filte
   const s=fixture();
   assert.equal(s.archives.length,1);
   assert.deepEqual(Array.from(s.archives[0],f=>f.name),[
-    'nafin/R8koukoku.html','nafin/R8/be/1.pdf','nafin/R8koukoku_kouji.html','nafin/R8/kouji/1.pdf',
+    'nafin/R8kokoku.html','nafin/R8/be/1.pdf','nafin/R8koukoku_kouji.html','nafin/R8/kouji/1.pdf',
     'nafin/R8open.html','nafin/R8/op/1.pdf','nafin/R8koubo.html','nafin/R8/kobo/1.pdf'
   ]);
   assert.deepEqual(s.reads,['KOKOKU:1','KOUJI:1','OP:1','KOBO:1']);
@@ -94,7 +94,7 @@ test('ZIP from construction includes all four DBs, isolates identical IDs, filte
 
 function assertZipHtmlTitles(files) {
   const titles = {
-    'nafin/R8koukoku.html':'令和８年度入札公告一覧',
+    'nafin/R8kokoku.html':'令和８年度入札公告一覧',
     'nafin/R8koukoku_kouji.html':'令和８年度入札公告（工事）一覧',
     'nafin/R8open.html':'令和８年度オープンカウンター一覧',
     'nafin/R8koubo.html':'令和８年度公募一覧'
@@ -112,7 +112,7 @@ test('full combined ZIP includes historical PDFs from every database',()=>{
   assert.equal(s.archives[0].length,12);
   for(const key of s.keys) assert(s.reads.includes(key+':2'));
   assert.deepEqual(Array.from(s.archives[0].filter(f=>f.name.endsWith('.html')),f=>f.name),[
-    'nafin/R8koukoku.html','nafin/R8koukoku_kouji.html','nafin/R8open.html','nafin/R8koubo.html'
+    'nafin/R8kokoku.html','nafin/R8koukoku_kouji.html','nafin/R8open.html','nafin/R8koubo.html'
   ]);
   assertZipHtmlTitles(s.archives[0]);
 });

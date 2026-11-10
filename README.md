@@ -180,7 +180,7 @@ UI更新
 メモリ状態 (allAnnouncements, allLinks, allSettings)
         ↓
         ├─→ CsvData.toCsv() ─→ kokoku.csv, links.csv, settings.csv
-        ├─→ HtmlExport.create() ─→ R8koukoku.html（公告DBの場合）
+        ├─→ HtmlExport.create() ─→ R8kokoku.html（公告DBの場合）
         │   └─→ HtmlExport.openPreview() でブラウザ新窓表示
         └─→ ZipExport.create() ─→ nafin.zip（更新分／全データ）
              (更新分 vs 全データ)
@@ -456,7 +456,7 @@ CsvData.fromCsv("ID,Name\n1,A\n2,B", ["ID", "Name"])
 **ZIP 内部構造**
 ```
 nafin/
-├── R{年度}koukoku.html  (生成HTML。例：R8koukoku.html、R9koukoku.html)
+├── R{年度}kokoku.html  (生成HTML。例：R8kokoku.html、R9kokoku.html)
 └── R8/be/
     ├── 080827-xxx.pdf  (アップロード済みPDF)
     ├── 080827-yyy.pdf
@@ -466,7 +466,7 @@ nafin/
 **使用方法**
 ```javascript
 ZipExport.create([
-  {name: "nafin/R{年度}koukoku.html", content: htmlString},
+  {name: "nafin/R{年度}kokoku.html", content: htmlString},
   {name: "nafin/R{年度}/be/xxx.pdf", file: File},
   ...
 ], function(blob){
@@ -617,7 +617,7 @@ PDF_LIBRARY=nafin/R8/be
 - 公告予定リストと公告リストには選択年度の公告だけを表示します。HTML・ZIP・公開HTML照合・PDF保存先も同じ年度へ切り替わります。
 - 入札日の年度と作業年度が一致しない場合は、公告、結果、PDFを保存せず警告します。別年度の作業は、先に上部メニューを対象年度へ切り替えてから行います。
 - 未保存の入力または選択PDFがある間は年度を切り替えません。
-- 公開HTML名は作業年度とDB別の種別に連動します。例：公告 `R8koukoku.html`／`R9koukoku.html`、工事 `R8koukoku_kouji.html`／`R9koukoku_kouji.html`、オープンカウンター `R8open.html`、公募 `R8koubo.html`。ZIP内の4種類のHTML見出し・ブラウザタイトルも年度と種別に合わせます。
+- 公開HTML名は作業年度とDB別の種別に連動します。例：公告 `R8kokoku.html`／`R9kokoku.html`、工事 `R8koukoku_kouji.html`／`R9koukoku_kouji.html`、オープンカウンター `R8open.html`、公募 `R8koubo.html`。ZIP内の4種類のHTML見出し・ブラウザタイトルも年度と種別に合わせます。
 - 結果は登録日にかかわらずコピー元公告の年度へ保存・掲載します。PDF保存先と掲載終了PDFも元公告年度のフォルダーを使用します。
 - HTML取込は入札日から対象年度を確認します。SharePointモードは選択中の区分の公告・リンクを全件削除してから登録します（全年度・予定一覧・アプリで追加した公告も対象）。別区分・PDF・設定は削除せず、基準日はHTMLに合わせて更新します。CSVモードは対象年度だけを置き換えます。リンク先PDFの存在確認は行いません。
 

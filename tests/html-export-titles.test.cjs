@@ -47,7 +47,7 @@ test('old and new inter-page HTML links follow the selected fiscal year and upda
     'R9koukoku.html', 'R9kokokukouji.html'];
   const links = references.map(name => '<a href="' + name + '">link</a>').join('');
   const html = createExporter(links).create([], [], [], 'R10', 'KOKOKU');
-  for (const file of ['R10koukoku.html', 'R10koukoku_kouji.html', 'R10open.html', 'R10koubo.html']) {
+  for (const file of ['R10kokoku.html', 'R10koukoku_kouji.html', 'R10open.html', 'R10koubo.html']) {
     assert(html.includes('href="' + file + '"'), file);
   }
   for (const file of references) assert(!html.includes('href="' + file + '"'), file);

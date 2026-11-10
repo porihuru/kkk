@@ -37,7 +37,7 @@
 
 □ 出力形式
   ✓ CSV (kokoku.csv, links.csv, settings.csv)
-  ✓ HTML (R8koukoku.html)
+  ✓ HTML (R8kokoku.html)
   ✓ ZIP (更新分/全データ)
 
 □ ブラウザ互換性
@@ -191,7 +191,7 @@ ZipExport.create(files, success)
 **ZIP内構造例**
 ```
 nafin/
-├── R8koukoku.html
+├── R8kokoku.html
 └── R8/be/
     ├── 080827-xxx.pdf
     ├── 080827-yyy.pdf
@@ -227,7 +227,7 @@ SHAREPOINT_SITE_URL=https://tenant.sharepoint.com/sites/...
 SETTINGS_LIST=kokoku_settings
 ANNOUNCEMENT_LIST=kokoku
 LINK_LIST=kokoku_links
-HTML_FILE=R8koukoku.html
+HTML_FILE=R8kokoku.html
 PUBLIC_ROOT=nafin
 PDF_ROOT=nafin/R8/be
 PDF_LIBRARY=nafin/R8/be

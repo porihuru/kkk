@@ -97,8 +97,8 @@
     if (!match) { return source; }
     // 古い公開名へのリンクも含め、HTML間の参照を新しい年度・ファイル名に揃える。
     var pages = {
-      kokoku: "koukoku",
-      koukoku: "koukoku",
+      kokoku: "kokoku",
+      koukoku: "kokoku",
       koukoku_kouji: "koukoku_kouji",
       kokokukouji: "koukoku_kouji",
       open: "open",

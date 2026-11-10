@@ -13,7 +13,7 @@ PUBLIC_SITE_URL=https://www.mod.go.jp/gsdf/nae/fin/
 SETTINGS_LIST=kokoku_settings
 ANNOUNCEMENT_LIST=kokoku
 LINK_LIST=kokoku_links
-HTML_FILE=R8koukoku.html
+HTML_FILE=R8kokoku.html
 PUBLIC_ROOT=nafin
 ENDED_PDF_URL=R8/4/keisai-syuuryou.pdf
 PDF_ROOT=nafin/R8/be
@@ -21,7 +21,7 @@ PDF_LIBRARY=/na/na/NAFin-WorkingData/koukoku/Documents/nafin/R8/be
 
 # DBごとのCSV保存先・SharePointリスト名
 DB_KOKOKU_NAME=公告DB
-DB_KOKOKU_PUBLIC_HTML=nafin/R8koukoku.html
+DB_KOKOKU_PUBLIC_HTML=nafin/R8kokoku.html
 DB_KOKOKU_CSV=csv/kokoku.csv
 DB_KOKOKU_PUBLIC_CSV=csv/kokoku_public.csv
 DB_KOKOKU_LINKS_CSV=csv/links.csv

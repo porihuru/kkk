@@ -21,7 +21,7 @@ test('All four databases export configured filenames with planned/public separat
   };
   vm.createContext(context);
   vm.runInContext(fs.readFileSync('js/data-service.js', 'utf8'), context);
-  const names = {KOKOKU:'koukoku',KOUJI:'koukoku_kouji',OP:'open',KOBO:'koubo'};
+  const names = {KOKOKU:'kokoku',KOUJI:'koukoku_kouji',OP:'open',KOBO:'koubo'};
   for(const key of ['KOKOKU','KOUJI','OP','KOBO']) {
     context.DataService.setDatabase(key);
     context.DataService.load(()=>{},()=>assert.fail('config failed'));
