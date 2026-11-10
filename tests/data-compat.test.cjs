@@ -21,6 +21,7 @@ test('All four databases export configured filenames with planned/public separat
   };
   vm.createContext(context);
   vm.runInContext(fs.readFileSync('js/data-service.js', 'utf8'), context);
+  const names = {KOKOKU:'koukoku',KOUJI:'kokokukouji',OP:'open',KOBO:'koubo'};
   for(const key of ['KOKOKU','KOUJI','OP','KOBO']) {
     context.DataService.setDatabase(key);
     context.DataService.load(()=>{},()=>assert.fail('config failed'));
@@ -28,8 +29,11 @@ test('All four databases export configured filenames with planned/public separat
       const configured=text.match(new RegExp('^DB_'+key+'_'+suffix+'=(.+)$','m'))[1].trim();
       assert.equal(context.DataService.getCsvFileName(kind), configured.split('/').pop());
     }
-    assert(context.DataService.setFiscalYear('R9'));
-    assert.match(context.DataService.getPublicHtmlFileName('R9'),/^R9/);
+    for (const year of ['R8','R9','R10','R12']) {
+      assert(context.DataService.setFiscalYear(year));
+      assert.equal(context.DataService.getPublicHtmlPath(year), 'nafin/'+year+names[key]+'.html');
+      assert.equal(context.DataService.getPublicHtmlFileName(year), year+names[key]+'.html');
+    }
     assert.equal(context.DataService.getPublicationConfig('R9').pdfRoot, 'R9/'+({KOKOKU:'be',KOUJI:'kouji',OP:'op',KOBO:'kobo'}[key]));
     assert.match(context.DataService.getPublicationConfig('R9').pdfLibrary,/^\/na\/na\/.*Documents\/nafin\/R9\//);
     assert.match(context.DataService.getPublicationConfig('R8').endedUrl,/^R8\//);

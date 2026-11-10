@@ -3,9 +3,22 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
+function createHtmlExporter() {
+  const template = fs.readFileSync('config/koukoku.html', 'utf8');
+  const context = {XMLHttpRequest:function() {
+    this.open=()=>{};
+    this.send=()=>{this.status=200;this.readyState=4;this.responseText=template;this.onreadystatechange();};
+  }};
+  vm.createContext(context);
+  vm.runInContext(fs.readFileSync('js/html-export.js', 'utf8'), context);
+  context.HtmlExport.loadTemplate(()=>{},assert.fail);
+  return context.HtmlExport;
+}
+
 function fixture(options = {}) {
   const keys = ['KOKOKU', 'KOUJI', 'OP', 'KOBO'];
   const folders = {KOKOKU:'be', KOUJI:'kouji', OP:'op', KOBO:'kobo'};
+  const htmlExporter = createHtmlExporter();
   const elements = {}, loads = [], reads = [], updates = [], archives = [], versions = new Set();
   let initializations = 0, downloadCount = 0, saveFailed = false;
   const config = fs.readFileSync('config/config.txt', 'utf8').replace(/^DATA_MODE=.*$/m, 'DATA_MODE=SHAREPOINT');
@@ -36,7 +49,7 @@ function fixture(options = {}) {
       assert.equal(year,'R8'); assert.deepEqual(Array.from(rows,r=>r.ID),['2','1']);
       assert.equal(links.length,2); assert.equal(settings.length,1);
       assert(keys.includes(database), 'Each ZIP page must use its source database title');
-      return JSON.stringify(links);
+      return htmlExporter.create(rows,links,settings,year,database);
     }},
     ZipPreview:{open:(name,files,full,yes,no)=>{assert.equal(reads.length,0); options.cancel ? no() : yes();}},
     ZipExport:{create:(files,ok,fail)=>{archives.push(files); options.zipFail ? fail() : ok({});}}
@@ -70,18 +83,38 @@ test('ZIP from construction includes all four DBs, isolates identical IDs, filte
   const s=fixture();
   assert.equal(s.archives.length,1);
   assert.deepEqual(Array.from(s.archives[0],f=>f.name),[
-    'R8kokoku.html','R8/be/1.pdf','R8koukoku_kouji.html','R8/kouji/1.pdf',
-    'R8open.html','R8/op/1.pdf','R8koubo.html','R8/kobo/1.pdf'
+    'nafin/R8koukoku.html','nafin/R8/be/1.pdf','nafin/R8kokokukouji.html','nafin/R8/kouji/1.pdf',
+    'nafin/R8open.html','nafin/R8/op/1.pdf','nafin/R8koubo.html','nafin/R8/kobo/1.pdf'
   ]);
   assert.deepEqual(s.reads,['KOKOKU:1','KOUJI:1','OP:1','KOBO:1']);
   assert.deepEqual(s.updates,['kokoku:1','kouji:1','op:1','kobo:1']);
   assert.equal(s.active.publishedAnnouncements[0].Status,'公告反映済');
+  assertZipHtmlTitles(s.archives[0]);
 });
+
+function assertZipHtmlTitles(files) {
+  const titles = {
+    'nafin/R8koukoku.html':'令和８年度入札公告一覧',
+    'nafin/R8kokokukouji.html':'令和８年度入札公告（工事）一覧',
+    'nafin/R8open.html':'令和８年度オープンカウンター一覧',
+    'nafin/R8koubo.html':'令和８年度公募一覧'
+  };
+  for (const [name, expected] of Object.entries(titles)) {
+    const html = files.find(file=>file.name===name);
+    assert(html, 'missing ZIP page '+name);
+    assert(html.content.includes('<title>'+expected+'</title>'), name+' browser title');
+    assert(html.content.includes('<h1>') && html.content.includes(expected.replace(/(入札公告（工事）|入札公告|オープンカウンター|公募)/, '<span style="color:red;">$1</span>')+'</h1>'), name+' heading');
+  }
+}
 
 test('full combined ZIP includes historical PDFs from every database',()=>{
   const s=fixture({full:true});
   assert.equal(s.archives[0].length,12);
   for(const key of s.keys) assert(s.reads.includes(key+':2'));
+  assert.deepEqual(Array.from(s.archives[0].filter(f=>f.name.endsWith('.html')),f=>f.name),[
+    'nafin/R8koukoku.html','nafin/R8kokokukouji.html','nafin/R8open.html','nafin/R8koubo.html'
+  ]);
+  assertZipHtmlTitles(s.archives[0]);
 });
 
 for(const kind of ['loadFail','pdfFail','cancel','zipFail','downloadFail']) {
@@ -103,7 +136,7 @@ test('failed status save retries the correct DB without repeating completed save
 test('CSV edits and selected PDFs survive switching from announcements to construction and back after combined ZIP',()=>{
   const elements={}, archives=[];
   const config=fs.readFileSync('config/config.txt','utf8').replace(/^DATA_MODE=.*$/m,'DATA_MODE=CSV');
-  const c={window:{confirm:()=>true},document:{getElementById:id=>elements[id]||(elements[id]={style:{}})},
+  const c={window:{confirm:()=>true},document:{getElementById:id=>elements[id]||(elements[id]={style:{},parentNode:{setAttribute:()=>{}}})},
     CsvData:{load:ok=>ok({announcements:[],links:[],publishedAnnouncements:[],publishedLinks:[],settings:[]})},
     HtmlExport:{create:rows=>JSON.stringify(rows)},
     ZipPreview:{open:(name,files,full,yes)=>yes()},
@@ -123,7 +156,7 @@ test('CSV edits and selected PDFs survive switching from announcements to constr
   c.testCsv.zip(false);
   assert.equal(archives.length,1);
   const pdfs=Array.from(archives[0]).filter(f=>f.file);
-  assert.deepEqual(pdfs.map(f=>[f.name,f.file.name]),[['R8/be/1.pdf','be.pdf'],['R8/kouji/1.pdf','kouji.pdf']]);
+  assert.deepEqual(pdfs.map(f=>[f.name,f.file.name]),[['nafin/R8/be/1.pdf','be.pdf'],['nafin/R8/kouji/1.pdf','kouji.pdf']]);
   assert.equal(archives[0].filter(f=>f.name.endsWith('.html')).length,4);
   c.testCsv.switch('KOKOKU');
   assert.equal(c.testCsv.rows().length,1);

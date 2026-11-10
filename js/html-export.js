@@ -95,7 +95,18 @@
   function replaceFiscalYear(source, fiscalYear) {
     var match = /^R([1-9][0-9]*)$/.exec(String(fiscalYear || ""));
     if (!match) { return source; }
-    source = source.replace(/R[1-9][0-9]*(?=(?:kokoku|koukoku_kouji|open|koubo)\.html)/gi, fiscalYear);
+    // 古い公開名へのリンクも含め、HTML間の参照を新しい年度・ファイル名に揃える。
+    var pages = {
+      kokoku: "koukoku",
+      koukoku: "koukoku",
+      koukoku_kouji: "kokokukouji",
+      kokokukouji: "kokokukouji",
+      open: "open",
+      koubo: "koubo"
+    };
+    source = source.replace(/R[1-9][0-9]*(koukoku_kouji|kokokukouji|kokoku|koukoku|open|koubo)\.html/gi, function (file, type) {
+      return fiscalYear + pages[type.toLowerCase()] + ".html";
+    });
     source = source.replace(/R[1-9][0-9]*年度/g, fiscalYear + "年度");
     return source.replace(/令和[0-9０-９]+年度/g, "令和" + match[1] + "年度");
   }

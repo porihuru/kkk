@@ -308,7 +308,7 @@
 
   DataService.getPublicHtmlPath = function (fiscalYear, database) {
     var config = currentConfig || {};
-    var pages = { KOKOKU: "R8kokoku.html", KOUJI: "R8koukoku_kouji.html", OP: "R8open.html", KOBO: "R8koubo.html" };
+    var pages = { KOKOKU: "R8koukoku.html", KOUJI: "R8kokokukouji.html", OP: "R8open.html", KOBO: "R8koubo.html" };
     var key = database || DataService.getDatabase();
     return yearized(config["DB_" + key + "_PUBLIC_HTML"] || "nafin/" + pages[key], fiscalYear);
   };
