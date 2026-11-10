@@ -2081,14 +2081,14 @@
 
   function previewPage() {
     var data = publicationData(activeFiscalYear);
-    if (HtmlExport.openPreview(data.announcements, data.links, allSettings, activeFiscalYear)) {
+    if (HtmlExport.openPreview(data.announcements, data.links, allSettings, activeFiscalYear, DataService.getDatabase())) {
       byId("form-message").innerHTML = activeFiscalYear + "年度の公開ページプレビューを開きました。";
     }
   }
 
   function exportHtml() {
     var data = publicationData(activeFiscalYear);
-    var html = HtmlExport.create(data.announcements, data.links, allSettings, activeFiscalYear);
+    var html = HtmlExport.create(data.announcements, data.links, allSettings, activeFiscalYear, DataService.getDatabase());
     var fileName = DataService.getPublicHtmlFileName(activeFiscalYear);
     downloadBlob(fileName, new Blob([html], { type: "text/html;charset=utf-8" }));
     byId("form-message").textContent = fileName + "を出力しました。";
@@ -2137,7 +2137,7 @@
           publications.push({ db: db, data: data, rows: rows });
           if (!DataService.isSharePoint()) { csvDatabaseSnapshots[db.database] = db; }
           files.push({ name: "nafin/" + DataService.getPublicHtmlPath(activeFiscalYear, db.database).replace(/^nafin\//i, ""),
-            content: HtmlExport.create(data.announcements, data.links, db.settings || [], activeFiscalYear) });
+            content: HtmlExport.create(data.announcements, data.links, db.settings || [], activeFiscalYear, db.database) });
           data.links.forEach(function (link) {
             var owner = announcementById(link.KokokuID, rows);
             if (link.Type === "掲載終了" || (!fullData && (!owner || owner.Status !== "公開待ち"))) { return; }

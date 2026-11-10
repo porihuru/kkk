@@ -65,7 +65,7 @@ test('Year-specific HTML updates the file-era heading and keeps only supplied ro
  vm.createContext(htmlContext);vm.runInContext(fs.readFileSync('js/html-export.js','utf8'),htmlContext);
  htmlContext.HtmlExport.loadTemplate(()=>{},assert.fail);
  const output=htmlContext.HtmlExport.create([{ID:'1',Category:'NEW',Garrison:'札幌',BidDate:'R9.4.1',Remarks:'R9',Status:'公告反映済'}],[{KokokuID:'1',Text:'公告',URL:'R9/be/a.pdf',Sort:'1'}],[],'R9');
- assert.match(output,/R9年度入札公告一覧/);assert.match(output,/令和9年度入札公告一覧/);assert.match(output,/R9\/be\/a\.pdf/);assert.doesNotMatch(output,/>old</);
+ assert.match(output,/<title>令和９年度入札公告一覧<\/title>/);assert.match(output,/<h1>令和９年度<span style="color:red;">入札公告<\/span>一覧<\/h1>/);assert.match(output,/R9\/be\/a\.pdf/);assert.doesNotMatch(output,/>old</);
 });
 
 test('Update request controls and fields are absent from the application',()=>{

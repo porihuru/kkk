@@ -100,6 +100,29 @@
     return source.replace(/令和[0-9０-９]+年度/g, "令和" + match[1] + "年度");
   }
 
+  function replacePageTitle(source, fiscalYear, database) {
+    var titles = {
+      KOKOKU: "入札公告",
+      KOUJI: "入札公告（工事）",
+      OP: "オープンカウンター",
+      KOBO: "公募"
+    };
+    var match = /^R([1-9][0-9]*)$/.exec(String(fiscalYear || "R8"));
+    var year = match ? match[1] : "8";
+    var fullWidthYear = year.replace(/[0-9]/g, function (digit) {
+      return String.fromCharCode(digit.charCodeAt(0) + 65248);
+    });
+    var subject = titles[database] || titles.KOKOKU;
+    var heading = "令和" + fullWidthYear + "年度<span style=\"color:red;\">" + subject + "</span>一覧";
+    var plainTitle = "令和" + fullWidthYear + "年度" + subject + "一覧";
+    source = source.replace(/(<title\b[^>]*>)[\s\S]*?(<\/title>)/i, function (whole, open, close) {
+      return open + plainTitle + close;
+    });
+    return source.replace(/(<h1\b[^>]*>)[\s\S]*?(<\/h1>)/i, function (whole, open, close) {
+      return open + heading + close;
+    });
+  }
+
   HtmlExport.loadTemplate = function (success, error) {
     var request = new XMLHttpRequest();
     request.open("GET", "config/koukoku.html", true);
@@ -125,7 +148,7 @@
     request.send(null);
   };
 
-  HtmlExport.create = function (announcements, links, settings, fiscalYear) {
+  HtmlExport.create = function (announcements, links, settings, fiscalYear, database) {
     var rows = [];
     var currentDate;
     var i;
@@ -150,10 +173,11 @@
     source = disableDateSorting(templateSource);
     source = replaceDate(source, currentDate);
     source = replaceFiscalYear(source, fiscalYear);
+    source = replacePageTitle(source, fiscalYear, database);
     return replaceRows(source, rows.join("\r\n"));
   };
 
-  HtmlExport.openPreview = function (announcements, links, settings, fiscalYear) {
+  HtmlExport.openPreview = function (announcements, links, settings, fiscalYear, database) {
     var preview = window.open("", "kokokuPreview");
     if (!preview) {
       if (global.Diagnostics) {
@@ -163,7 +187,7 @@
       return false;
     }
     preview.document.open();
-    preview.document.write(HtmlExport.create(announcements, links, settings, fiscalYear));
+    preview.document.write(HtmlExport.create(announcements, links, settings, fiscalYear, database));
     preview.document.close();
     return true;
   };

@@ -32,9 +32,10 @@ function fixture(options = {}) {
         if (options.saveFail && list==='op' && !saveFailed) { saveFailed=true; fail(); return; }
         updates.push(list+':'+id); ok();
       }},
-    HtmlExport:{create:(rows,links,settings,year)=>{
+    HtmlExport:{create:(rows,links,settings,year,database)=>{
       assert.equal(year,'R8'); assert.deepEqual(Array.from(rows,r=>r.ID),['2','1']);
       assert.equal(links.length,2); assert.equal(settings.length,1);
+      assert(keys.includes(database), 'Each ZIP page must use its source database title');
       return JSON.stringify(links);
     }},
     ZipPreview:{open:(name,files,full,yes,no)=>{assert.equal(reads.length,0); options.cancel ? no() : yes();}},
