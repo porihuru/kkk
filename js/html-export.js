@@ -99,8 +99,8 @@
     var pages = {
       kokoku: "koukoku",
       koukoku: "koukoku",
-      koukoku_kouji: "kokokukouji",
-      kokokukouji: "kokokukouji",
+      koukoku_kouji: "koukoku_kouji",
+      kokokukouji: "koukoku_kouji",
       open: "open",
       koubo: "koubo"
     };

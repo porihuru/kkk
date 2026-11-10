@@ -16,7 +16,7 @@
 
 正本は `https://www.mod.go.jp/gsdf/nae/fin/` で公開されているHTMLです。
 `config/config.txt` の `PUBLIC_SITE_URL` とDB別の `PUBLIC_HTML` で参照先を指定します。
-公告は `nafin/R8koukoku.html`、工事は `nafin/R8kokokukouji.html`、
+公告は `nafin/R8koukoku.html`、工事は `nafin/R8koukoku_kouji.html`、
 オープンカウンターは `nafin/R8open.html`、公募は `nafin/R8koubo.html` です。
 画面の「公開中のHTMLを確認」は対象DBに応じて切り替わります。
 画面内の相対PDFリンクも公開HTMLを基準に開きます。
