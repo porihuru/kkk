@@ -1818,6 +1818,43 @@
         return words.concat(links.map(function (link) { return link.Text; })).join(" ").toLowerCase().indexOf(keyword) >= 0;
       }));
     });
+    refreshTableNavigation();
+  }
+
+  function refreshTableNavigation() {
+    ["planned", "published"].forEach(function (kind) {
+      var wrap = byId(kind + "-table-wrap");
+      var navigation = byId(kind + "-table-navigation");
+      var left = byId(kind + "-table-left");
+      var right = byId(kind + "-table-right");
+      if (!wrap || !navigation || !left || !right || !navigation.style ||
+          typeof wrap.scrollWidth !== "number" || typeof wrap.clientWidth !== "number") { return; }
+      var remaining = wrap.scrollWidth - wrap.clientWidth;
+      var hasHiddenColumns = remaining > 1;
+      navigation.style.display = hasHiddenColumns ? "" : "none";
+      left.disabled = !hasHiddenColumns || wrap.scrollLeft <= 1;
+      right.disabled = !hasHiddenColumns || wrap.scrollLeft >= remaining - 1;
+    });
+  }
+
+  function setupTableNavigation() {
+    ["planned", "published"].forEach(function (kind) {
+      var wrap = byId(kind + "-table-wrap");
+      var left = byId(kind + "-table-left");
+      var right = byId(kind + "-table-right");
+      if (!wrap || !left || !right) { return; }
+      left.onclick = function () {
+        wrap.scrollLeft = 0;
+        refreshTableNavigation();
+      };
+      right.onclick = function () {
+        wrap.scrollLeft = wrap.scrollWidth - wrap.clientWidth;
+        refreshTableNavigation();
+      };
+      if (wrap.addEventListener) { wrap.addEventListener("scroll", refreshTableNavigation); }
+    });
+    if (global.addEventListener) { global.addEventListener("resize", refreshTableNavigation); }
+    refreshTableNavigation();
   }
 
   function showError() {
@@ -2437,6 +2474,7 @@
     setupPdfFilename();
     setDefaultBidDate();
     updatePdfLinks();
+    setupTableNavigation();
     byId("data-status").innerHTML = "テンプレート / SharePoint / CSV確認中...";
     loadData();
     HtmlExport.loadTemplate(function () {}, function () {

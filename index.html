@@ -234,7 +234,12 @@
        <button id="export-planned-links" type="button" class="button export-button admin-only-control hidden">予定リンクCSV出力</button>
     </section>
 
-    <section class="table-wrap">
+    <div class="table-navigation" id="planned-table-navigation" aria-label="公告予定リストの横移動">
+      <span class="table-navigation-hint">右側に隠れた列も表示できます。</span>
+      <button type="button" class="button button-small button-secondary" id="planned-table-left" aria-controls="planned-table-wrap">◀ 左端へ</button>
+      <button type="button" class="button button-small" id="planned-table-right" aria-controls="planned-table-wrap">右端へ ▶</button>
+    </div>
+    <section class="table-wrap" id="planned-table-wrap" aria-label="公告予定リストの表（左右にスクロール可能）" tabindex="0">
       <table>
         <thead>
           <tr>
@@ -289,7 +294,12 @@
        <p id="zip-message" class="form-message" role="status" aria-live="assertive"></p>
     </section>
 
-    <section class="table-wrap">
+    <div class="table-navigation" id="published-table-navigation" aria-label="公告リストの横移動">
+      <span class="table-navigation-hint">入札日・備考が見えない場合は「右端へ」を押してください。</span>
+      <button type="button" class="button button-small button-secondary" id="published-table-left" aria-controls="published-table-wrap">◀ 左端へ</button>
+      <button type="button" class="button button-small" id="published-table-right" aria-controls="published-table-wrap">右端へ ▶</button>
+    </div>
+    <section class="table-wrap" id="published-table-wrap" aria-label="公告リストの表（左右にスクロール可能）" tabindex="0">
       <table>
         <thead>
           <tr>

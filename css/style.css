@@ -649,6 +649,31 @@ h2 {
   border: 1px solid #d4dddd;
 }
 
+/* The 13-column lists extend beyond narrow screens. Keep navigation above the rows. */
+.table-navigation {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 10px 20px;
+  background: #edf4f6;
+  border-top: 1px solid #b8c7d2;
+}
+
+.table-navigation-hint {
+  flex: 1 1 280px;
+  margin: 4px 12px 4px 0;
+  color: #294953;
+  font-size: 13px;
+}
+
+.table-navigation .button { margin: 4px 0 4px 8px; white-space: nowrap; }
+.table-navigation .button:disabled { opacity: 0.45; cursor: default; }
+
+@media screen {
+  [data-theme="dark"] .table-navigation { background: #243943; border-top-color: #59707e; }
+  [data-theme="dark"] .table-navigation-hint { color: #d3e0e7; }
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -965,4 +990,73 @@ a {
   .workspace-heading { padding: 16px; }
   .workspace-heading h2 { font-size: 21px; }
   .workspace-section > .toolbar { padding: 16px; }
+}
+
+/* Keep the bid date and remarks in view on desktop screens. A long item name
+   wraps inside its column instead of pushing the last columns off screen. */
+#planned-table-wrap .subject-cell,
+#published-table-wrap .subject-cell {
+  min-width: 0;
+  white-space: normal;
+  word-wrap: break-word;
+  word-break: break-all;
+}
+
+#planned-table-wrap .link-list li,
+#published-table-wrap .link-list li {
+  white-space: normal;
+  word-wrap: break-word;
+  word-break: break-all;
+}
+
+@media screen and (min-width: 1100px) {
+  #planned-table-wrap table,
+  #published-table-wrap table {
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
+  }
+
+  #planned-table-wrap th,
+  #planned-table-wrap td,
+  #published-table-wrap th,
+  #published-table-wrap td {
+    padding: 10px 5px;
+    white-space: normal;
+    word-wrap: break-word;
+  }
+
+  #planned-table-wrap .actions,
+  #published-table-wrap .actions,
+  #planned-table-wrap .remarks-cell,
+  #published-table-wrap .remarks-cell {
+    min-width: 0;
+    width: auto;
+  }
+
+  #planned-table-wrap .remarks-cell,
+  #published-table-wrap .remarks-cell {
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  #planned-table-wrap .order-controls,
+  #published-table-wrap .order-controls { display: flex; margin: 0 0 4px; }
+  #planned-table-wrap .order-button,
+  #published-table-wrap .order-button { width: 20px; height: 20px; }
+
+  /* 13 columns, totaling 100%. Both lists use the same column structure. */
+  #planned-table-wrap th:nth-child(1), #published-table-wrap th:nth-child(1) { width: 4%; }
+  #planned-table-wrap th:nth-child(2), #published-table-wrap th:nth-child(2) { width: 4%; }
+  #planned-table-wrap th:nth-child(3), #published-table-wrap th:nth-child(3) { width: 8%; }
+  #planned-table-wrap th:nth-child(4), #published-table-wrap th:nth-child(4) { width: 6%; }
+  #planned-table-wrap th:nth-child(5), #published-table-wrap th:nth-child(5) { width: 10%; }
+  #planned-table-wrap th:nth-child(6), #published-table-wrap th:nth-child(6) { width: 6%; }
+  #planned-table-wrap th:nth-child(7), #published-table-wrap th:nth-child(7) { width: 10%; }
+  #planned-table-wrap th:nth-child(8), #published-table-wrap th:nth-child(8) { width: 8%; }
+  #planned-table-wrap th:nth-child(9), #published-table-wrap th:nth-child(9) { width: 5%; }
+  #planned-table-wrap th:nth-child(10), #published-table-wrap th:nth-child(10) { width: 6%; }
+  #planned-table-wrap th:nth-child(11), #published-table-wrap th:nth-child(11) { width: 18%; }
+  #planned-table-wrap th:nth-child(12), #published-table-wrap th:nth-child(12) { width: 8%; }
+  #planned-table-wrap th:nth-child(13), #published-table-wrap th:nth-child(13) { width: 7%; }
 }
